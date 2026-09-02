@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Personal Inbox</title>
+    <script>
+      // Тема и плотность применяются до первого рендера, чтобы не было
+      // вспышки чужой темы (решение №28).
+      (function () {
+        try {
+          var theme = localStorage.getItem('pi-theme') || 'dark';
+          var density = localStorage.getItem('pi-density') || 'spacious';
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.dataset.density = density;
+        } catch (error) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -71,6 +71,7 @@ MsgStatus  = "PROCESSING" | "DONE"                       # статус оцен
 | `summary` | text | 1–2 предложения от модели |
 | `external_url` | str | ссылка «Открыть в Gmail/Telegram» |
 | `analyzed_at` | datetime nullable | |
+| `analysis_failed` | bool | модель не ответила после трёх попыток — на карточке пометка «Оценка недоступна» |
 
 `UNIQUE (connection_id, external_id)` — защита от дублей при повторной синхронизации.
 Индексы: `(connection_id, received_at DESC)`, `(connection_id, is_read)`.
@@ -120,6 +121,10 @@ MsgStatus  = "PROCESSING" | "DONE"                       # статус оцен
 | `week` — Неделя | последние 7×24 часа |
 | `month` — Месяц | последние 30×24 часа |
 
+`today` считается по локальному времени пользователя, поэтому фронт передаёт
+в `/api/messages` параметр `tz_offset` — смещение часового пояса в минутах
+(`-new Date().getTimezoneOffset()`). Без него «Сегодня» считалось бы по UTC.
+
 В референсе этот фильтр объявлен, но в функции сопоставления не применён —
 это баг прототипа, а не решение. **В продукте фильтр обязан работать.**
 
@@ -155,11 +160,20 @@ JWT не заводим: одностраничное приложение и о
 | `POST` | `/api/connections/telegram` | `{bot_token}`, проверка через `getMe` |
 | `DELETE` | `/api/connections/{kind}` | отключить |
 | `GET` | `/api/sources` | карточки уровня 1: счётчики, распределение, самое срочное |
-| `GET` | `/api/messages` | `?source=&level=&status=&reply=&action=&period=&q=` |
+| `GET` | `/api/messages` | `?source=&level=&status=&reply=&action=&period=&q=&tz_offset=` |
 | `GET` | `/api/messages/{id}` | детали |
 | `POST` | `/api/messages/{id}/read` | пометить прочитанным |
 | `POST` | `/api/messages/{id}/level` | `{level}` — ручное исправление |
 | `GET` | `/api/summary` | `?period=24h|week|month` |
+
+Значения фильтров в `/api/messages`: `level` — `all` или один из четырёх уровней;
+`status` — `all` \| `unread` \| `read` \| `done`; `reply` и `action` — `all` \| `yes` \| `no`;
+`period` — `all` \| `today` \| `week` \| `month`.
+
+Ответ `/api/messages` — объект `{items, total, unread}`: счётчики нужны подзаголовку
+«N сообщений · M непрочитанных», который пересчитывается по текущим фильтрам.
+Ответ `PATCH /api/me` — `{user, reanalyze_queued}`: второе поле говорит фронту,
+сколько сообщений ушло на переоценку после смены критериев.
 
 ### 6.1 Как новые сообщения попадают на фронт
 
