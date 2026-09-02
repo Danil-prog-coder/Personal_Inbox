@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="6114432f-50c3-4721-97dd-be3aee5fbc80"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+html,body{margin:0;padding:0;height:100%}
+body{font-family:system-ui,-apple-system,"SF Pro Text","Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden;background:#08080a}
+a{color:#0a84ff;text-decoration:none}
+a:hover{color:#3ba0ff}
+*{box-sizing:border-box}
+::-webkit-scrollbar{width:0;height:0}
+body{--ink:#f2f4f7;--ink2:rgba(255,255,255,.60);--ink3:rgba(255,255,255,.34);--glass:linear-gradient(155deg,rgba(255,255,255,.055),rgba(255,255,255,.012));--glass2:linear-gradient(155deg,rgba(255,255,255,.03),rgba(255,255,255,.008));--stroke:rgba(255,255,255,.14);--stroke2:rgba(255,255,255,.06);--hi:rgba(255,255,255,.98);--sh:0 28px 70px rgba(0,0,0,.62),0 2px 8px rgba(0,0,0,.34);--sh2:0 12px 30px rgba(0,0,0,.4);--fill:rgba(255,255,255,.035);--fill2:rgba(255,255,255,.075);--page:radial-gradient(52% 40% at 78% 6%,rgba(24,92,150,.5),transparent 66%),radial-gradient(46% 38% at 12% 92%,rgba(120,20,86,.42),transparent 68%),radial-gradient(120% 100% at 30% 20%,#0b0b0d 0%,#040405 55%,#000 100%);--chrome:rgba(255,255,255,.05);--crit-ink:#ff6b5f;--warn-ink:#ffb84a;--info-ink:#4aa3ff;--mute-ink:#aab3c0;--ok-ink:#30d158}
+[data-theme="light"]{--ink:#0d1526;--ink2:rgba(11,18,34,.68);--ink3:rgba(11,18,34,.46);--glass:linear-gradient(155deg,rgba(255,255,255,.30),rgba(255,255,255,.09));--glass2:linear-gradient(155deg,rgba(255,255,255,.17),rgba(255,255,255,.05));--stroke:rgba(255,255,255,.62);--stroke2:rgba(255,255,255,.3);--hi:rgba(255,255,255,.98);--sh:0 28px 70px rgba(16,32,86,.30),0 2px 6px rgba(16,32,86,.14);--sh2:0 12px 30px rgba(16,32,86,.18);--fill:rgba(255,255,255,.20);--fill2:rgba(255,255,255,.38);--page:radial-gradient(58% 46% at 82% 8%,rgba(255,186,224,.9),transparent 62%),radial-gradient(66% 58% at 8% 88%,rgba(126,226,255,.85),transparent 66%),linear-gradient(158deg,#9dbcff 0%,#5a7fe0 48%,#31409c 100%);--chrome:rgba(255,255,255,.26);--crit-ink:#a82c22;--warn-ink:#7d4900;--info-ink:#0a52ad;--mute-ink:#3f4a5a;--ok-ink:#12703a}
+@keyframes glassIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes dropIn{from{opacity:0;transform:translateY(-18px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes shimmer{0%{background-position:-320px 0}100%{background-position:320px 0}}
+@keyframes pulseRing{0%{box-shadow:0 0 0 0 rgba(10,132,255,.5)}70%{box-shadow:0 0 0 14px rgba(10,132,255,0)}100%{box-shadow:0 0 0 0 rgba(10,132,255,0)}}
+@keyframes tabIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes floaty{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-10px,0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+
+<div data-theme="{{ th }}" style="position:fixed;inset:0;background:var(--page);transition:background .5s ease"></div>
+<div data-theme="{{ th }}" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:22px;color:var(--ink)">
+  <div style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:999px;background:var(--glass);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border:1px solid var(--stroke);box-shadow:var(--sh2);flex:none">
+    <div style="position:relative;display:flex;gap:0;width:176px;padding:4px">
+      <div style="{{ devLens }}"></div>
+      <button sc-camel-on-click="{{ setPhone }}" style="{{ segPhone }}">iPhone</button>
+      <button sc-camel-on-click="{{ setDesktop }}" style="{{ segDesktop }}">Desktop</button>
+    </div>
+    <div style="width:1px;height:20px;background:var(--stroke)"></div>
+    <div style="position:relative;display:flex;gap:0;width:176px;padding:4px">
+      <div style="{{ thLens }}"></div>
+      <button sc-camel-on-click="{{ setDark }}" style="{{ segDark }}">Тёмное</button>
+      <button sc-camel-on-click="{{ setLight }}" style="{{ segLight }}">Светлое</button>
+    </div>
+  </div>
+  <div style="{{ frameStyle }}">
+    <div style="{{ wallStyle }}"></div>
+    <div style="position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;color:var(--ink)">
+    <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:clamp(26px,6%,64px);gap:26px;animation:glassIn .5s cubic-bezier(.2,.9,.3,1) both">
+        <div style="position:absolute;top:-110px;right:-80px;width:250px;height:250px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(10,132,255,.34),rgba(214,0,108,.14) 58%,transparent 72%);filter:blur(44px);animation:floaty 9s ease-in-out infinite;pointer-events:none"></div>
+        <div style="display:flex;flex-direction:column;gap:9px;max-width:460px">
+          <div style="display:flex;align-items:center;gap:11px">
+            <div style="width:38px;height:38px;border-radius:12px;background:var(--glass);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi);display:flex;align-items:center;justify-content:center">
+              <svg width="19" height="19" sc-camel-view-box="0 0 24 24" fill="none"><path d="M3 7.5 12 13l9-5.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" opacity=".55"></path><rect x="3" y="5" width="18" height="14" rx="3.6" stroke="currentColor" stroke-width="1.7"></rect></svg>
+            </div>
+            <span style="font:600 14px/1 system-ui,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)">Personal Inbox</span>
+          </div>
+          <h1 style="margin:6px 0 0;font:600 clamp(30px,4vw,40px)/1.08 system-ui,sans-serif;letter-spacing:-.03em">{{ authTitle }}</h1>
+          <p style="margin:0;font:400 15px/1.45 system-ui,sans-serif;color:var(--ink2);max-width:400px;text-wrap:pretty">{{ authSub }}</p>
+        </div>
+        <sc-if value="{{ isCriteria }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:16px;max-width:520px">
+            <div style="position:relative;border-radius:24px;background:var(--glass);backdrop-filter:blur(36px) saturate(200%);-webkit-backdrop-filter:blur(36px) saturate(200%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh);padding:16px 18px">
+              <textarea sc-camel-on-change="{{ onCriteria }}" placeholder="Например: важны письма от клиентов Northline, всё про договоры и сроки, сообщения от команды с блокерами. Рассылки и уведомления сервисов — неважно." style="width:100%;height:132px;resize:none;border:0;outline:none;background:transparent;color:var(--ink);font:400 15px/1.5 system-ui,sans-serif"></textarea>
+            </div>
+            <div style="display:flex;gap:11px;align-items:flex-start;padding:0 4px">
+              <svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" style="flex:none;margin-top:1px;opacity:.5"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"></circle><path d="M12 11v5.5M12 7.6v.9" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path></svg>
+              <p style="margin:0;font:400 13px/1.5 system-ui,sans-serif;color:var(--ink2);text-wrap:pretty">Это не жёсткие правила. Текст уходит в модель как контекст: она сама решает, что для вас критично, и уточняет оценку по вашим исправлениям.</p>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+              <button sc-camel-on-click="{{ finishAuth }}" style="flex:1;appearance:none;border:0;cursor:pointer;padding:15px 22px;border-radius:999px;font:600 15px/1 system-ui,sans-serif;color:#fff;background:linear-gradient(150deg,#4aa3ff,#0a6fe0);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 10px 26px rgba(10,111,224,.42);transition:transform .18s cubic-bezier(.3,1.4,.4,1),box-shadow .18s" style-hover="transform:translateY(-1.5px);box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 14px 32px rgba(10,111,224,.55)" style-active="transform:translateY(1px) scale(.985)">Начать анализ</button>
+              <button sc-camel-on-click="{{ finishAuth }}" style="appearance:none;cursor:pointer;padding:15px 20px;border-radius:999px;font:500 15px/1 system-ui,sans-serif;color:var(--ink2);background:var(--fill);border:1px solid var(--stroke2);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:.2s" style-hover="color:var(--ink);background:var(--fill2)">Пропустить</button>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isCreds }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:12px;max-width:460px">
+            <div style="display:flex;flex-direction:column;gap:10px;padding:8px;border-radius:26px;background:var(--glass);backdrop-filter:blur(36px) saturate(200%);-webkit-backdrop-filter:blur(36px) saturate(200%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh)">
+              <label style="display:flex;flex-direction:column;gap:3px;padding:11px 16px 12px;border-radius:19px;background:var(--fill);border:1px solid var(--stroke2);transition:.2s" style-hover="background:var(--fill2)">
+                <span style="font:500 11.5px/1 system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)">Email</span>
+                <input type="email" value="me@northline.io" style="border:0;outline:none;background:transparent;color:var(--ink);font:400 16px/1.3 system-ui,sans-serif;padding:0">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:3px;padding:11px 16px 12px;border-radius:19px;background:var(--fill);border:1px solid var(--stroke2);transition:.2s" style-hover="background:var(--fill2)">
+                <span style="font:500 11.5px/1 system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)">Пароль</span>
+                <input type="password" value="password" style="border:0;outline:none;background:transparent;color:var(--ink);font:400 16px/1.3 system-ui,sans-serif;padding:0;letter-spacing:.18em">
+              </label>
+            </div>
+            <button sc-camel-on-click="{{ submitAuth }}" style="appearance:none;border:0;cursor:pointer;margin-top:4px;padding:16px 22px;border-radius:999px;font:600 15.5px/1 system-ui,sans-serif;color:#fff;background:linear-gradient(150deg,#4aa3ff,#0a6fe0);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 12px 30px rgba(10,111,224,.45);transition:transform .18s cubic-bezier(.3,1.4,.4,1),box-shadow .18s" style-hover="transform:translateY(-1.5px);box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 16px 36px rgba(10,111,224,.58)" style-active="transform:translateY(1px) scale(.985)">{{ authCta }}</button>
+            <button sc-camel-on-click="{{ toggleAuth }}" style="appearance:none;border:0;background:transparent;cursor:pointer;padding:10px;font:500 14px/1 system-ui,sans-serif;color:var(--ink2);transition:.2s" style-hover="color:var(--ink)">{{ authAlt }}</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isApp }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;display:flex;overflow:hidden">
+        <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ false }}">
+          <div style="width:252px;flex:none;display:flex;flex-direction:column;gap:6px;padding:20px 14px;background:var(--glass2);backdrop-filter:blur(40px) saturate(200%);-webkit-backdrop-filter:blur(40px) saturate(200%);border-right:1px solid var(--stroke2)">
+            <div style="display:flex;align-items:center;gap:10px;padding:6px 10px 18px">
+              <div style="width:30px;height:30px;border-radius:10px;background:linear-gradient(150deg,#4aa3ff,#0a6fe0);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 4px 12px rgba(10,111,224,.4);display:flex;align-items:center;justify-content:center">
+                <svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" style="color:#fff"><path d="M3 7.5 12 13l9-5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".7"></path><rect x="3" y="5" width="18" height="14" rx="3.6" stroke="currentColor" stroke-width="2"></rect></svg>
+              </div>
+              <span style="font:600 15px/1 system-ui,sans-serif;letter-spacing:-.01em">Personal Inbox</span>
+            </div>
+            <div style="position:relative;display:flex;flex-direction:column;gap:6px">
+              <div style="{{ railLensStyle }}"></div>
+              <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4">
+                <button sc-camel-on-click="{{ n.go }}" style="{{ n.style }}">
+                  <span style="display:flex;width:20px;justify-content:center;opacity:.9">{{ n.icon }}</span>
+                  <span style="flex:1;text-align:left">{{ n.label }}</span>
+                  <span style="{{ n.badgeStyle }}">{{ n.badge }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="flex:1"></div>
+            <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:16px;background:var(--fill);border:1px solid var(--stroke2)">
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(150deg,#ff9f0a,#d6006c);box-shadow:inset 0 1px 0 rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font:600 13px/1 system-ui,sans-serif;color:#fff">М</div>
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                <span style="font:600 13px/1.2 system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Максим Орлов</span>
+                <span style="font:400 11.5px/1.2 system-ui,sans-serif;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">me@northline.io</span>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">
+          <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:15px 30px 4px;font:600 15px/1 system-ui,sans-serif;letter-spacing:-.01em">
+              <span>9:41</span>
+              <div style="display:flex;align-items:center;gap:6px;opacity:.9">
+                <svg width="17" height="12" sc-camel-view-box="0 0 17 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"></rect><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"></rect><rect x="9" y="3" width="3" height="9" rx="1"></rect><rect x="13.5" y="0" width="3" height="12" rx="1" opacity=".4"></rect></svg>
+                <svg width="16" height="12" sc-camel-view-box="0 0 16 12" fill="none"><path d="M1 4.2a10 10 0 0 1 14 0M3.6 6.9a6.3 6.3 0 0 1 8.8 0M6.2 9.6a2.6 2.6 0 0 1 3.6 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
+                <svg width="25" height="12" sc-camel-view-box="0 0 25 12" fill="none"><rect x="0.6" y="0.6" width="21" height="10.8" rx="3.2" stroke="currentColor" stroke-width="1.1" opacity=".45"></rect><rect x="2.2" y="2.2" width="14" height="7.6" rx="2" fill="currentColor"></rect><path d="M23.2 4.3v3.4a2 2 0 0 0 0-3.4Z" fill="currentColor" opacity=".45"></path></svg>
+              </div>
+            </div>
+          </sc-if>
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;position:relative">
+            <sc-if value="{{ tabFeed }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:1;min-height:0;display:flex;flex-direction:column;animation:tabIn .34s cubic-bezier(.2,.9,.3,1) both">
+                <div style="flex:none;display:flex;flex-direction:column;gap:12px;padding:{{ padHead }}">
+                  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
+                    <div style="display:flex;align-items:center;gap:11px;min-width:0">
+                      <sc-if value="{{ inSrcMsgs }}" hint-placeholder-val="{{ false }}">
+                        <button sc-camel-on-click="{{ goSrcList }}" style="flex:none;appearance:none;cursor:pointer;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ink);background:var(--glass);backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh2);transition:.2s" style-hover="background:var(--fill2)">{{ iconBack }}</button>
+                      </sc-if>
+                      <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                        <h1 style="margin:0;font:600 clamp(26px,3vw,32px)/1.05 system-ui,sans-serif;letter-spacing:-.03em">{{ srcTitle }}</h1>
+                        <span style="font:400 13px/1.3 system-ui,sans-serif;color:var(--ink3)">{{ feedCount }}</span>
+                      </div>
+                    </div>
+                    <sc-if value="{{ inSrcMsgs }}" hint-placeholder-val="{{ false }}">
+                      <button sc-camel-on-click="{{ toggleFilters }}" style="{{ filterBtnStyle }}">
+                        <span style="display:flex">{{ iconFilter }}</span>
+                        <span>Фильтры</span>
+                        <span style="{{ filterDotStyle }}"></span>
+                      </button>
+                    </sc-if>
+                  </div>
+                  <sc-if value="{{ inSrcMsgs }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:10px;padding:0 14px;height:44px;border-radius:16px;background:var(--glass);backdrop-filter:blur(32px) saturate(200%);-webkit-backdrop-filter:blur(32px) saturate(200%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh2)">
+                    <span style="display:flex;color:var(--ink3)">{{ iconSearch }}</span>
+                    <input value="{{ q }}" sc-camel-on-change="{{ onSearch }}" placeholder="Поиск по сообщениям" style="flex:1;min-width:0;border:0;outline:none;background:transparent;color:var(--ink);font:400 15px/1 system-ui,sans-serif">
+                    <span style="{{ searchCountStyle }}">{{ searchCount }}</span>
+                  </div>
+                  </sc-if>
+                  <sc-if value="{{ showFilters }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:22px;background:var(--glass2);backdrop-filter:blur(36px) saturate(200%);-webkit-backdrop-filter:blur(36px) saturate(200%);border:1px solid var(--stroke2);box-shadow:inset 0 1px 0 var(--hi);animation:dropIn .34s cubic-bezier(.2,1.1,.3,1) both">
+                      <sc-for list="{{ filterGroups }}" as="g" hint-placeholder-count="4">
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <span style="flex:none;width:74px;font:500 11px/1.2 system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)">{{ g.label }}</span>
+                          <div style="display:flex;flex-wrap:wrap;gap:6px">
+                            <sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="3">
+                              <button sc-camel-on-click="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button>
+                            </sc-for>
+                          </div>
+                        </div>
+                      </sc-for>
+                      <button sc-camel-on-click="{{ resetFilters }}" style="align-self:flex-start;appearance:none;border:0;background:transparent;cursor:pointer;padding:4px 0;font:500 12.5px/1 system-ui,sans-serif;color:var(--info-ink);transition:.2s" style-hover="opacity:.7">Сбросить всё</button>
+                    </div>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ inSrcList }}" hint-placeholder-val="{{ true }}">
+                  <div style="flex:1;min-height:0;overflow-y:auto;padding:{{ padList }};display:flex;flex-direction:column;gap:12px;animation:tabIn .34s cubic-bezier(.2,.9,.3,1) both">
+                    <sc-for list="{{ srcCards }}" as="sc" hint-placeholder-count="2">
+                      <button sc-camel-on-click="{{ sc.go }}" style="flex:none;appearance:none;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:13px;padding:18px;border-radius:26px;color:var(--ink);background:var(--glass);backdrop-filter:blur(34px) saturate(200%);-webkit-backdrop-filter:blur(34px) saturate(200%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh2);transition:transform .22s cubic-bezier(.3,1.3,.4,1),box-shadow .22s" style-hover="transform:translateY(-2px);box-shadow:inset 0 1px 0 var(--hi),var(--sh)" style-active="transform:translateY(0) scale(.99)">
+                        <div style="display:flex;align-items:center;gap:13px;width:100%">
+                          <span style="{{ sc.mark }}">{{ sc.letter }}</span>
+                          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                            <span style="font:600 17px/1.2 system-ui,sans-serif;letter-spacing:-.022em">{{ sc.name }}</span>
+                            <span style="font:400 12.5px/1.2 system-ui,sans-serif;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.acct }} · {{ sc.count }}</span>
+                          </span>
+                          <span style="{{ sc.unreadStyle }}">{{ sc.unread }}</span>
+                          <span style="flex:none;display:flex;color:var(--ink3)">{{ iconChev }}</span>
+                        </div>
+                        <div style="display:flex;height:7px;gap:2px;width:100%">
+                          <sc-for list="{{ sc.bars }}" as="b" hint-placeholder-count="4">
+                            <div style="{{ b.style }}"></div>
+                          </sc-for>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:9px;width:100%">
+                          <span style="{{ sc.topDot }}"></span>
+                          <span style="flex:1;min-width:0;font:400 13px/1.35 system-ui,sans-serif;color:var(--ink);opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.topLine }}</span>
+                        </div>
+                        <sc-if value="{{ sc.reauth }}" hint-placeholder-val="{{ false }}">
+                          <span style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border-radius:14px;font:500 12px/1.3 system-ui,sans-serif;color:var(--warn-ink);background:rgba(255,159,10,.13);border:1px solid rgba(255,159,10,.3)">
+                            <span style="display:flex">{{ iconWarn }}</span>Нужна повторная авторизация — новые сообщения не поступают
+                          </span>
+                        </sc-if>
+                      </button>
+                    </sc-for>
+                    <div style="flex:none;height:{{ listTail }}"></div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ inSrcMsgs }}" hint-placeholder-val="{{ false }}">
+                <div style="flex:1;min-height:0;overflow-y:auto;padding:{{ padList }};display:flex;flex-direction:column;gap:10px;animation:tabIn .34s cubic-bezier(.2,.9,.3,1) both">
+                  <sc-for list="{{ cards }}" as="c" hint-placeholder-count="5">
+                    <div style="{{ c.wrap }}">
+                      <div style="{{ c.edge }}"></div>
+                      <button sc-camel-on-click="{{ c.open }}" style="appearance:none;border:0;background:transparent;cursor:pointer;text-align:left;width:100%;padding:{{ c.pad }};display:flex;gap:12px;color:var(--ink)">
+                        <div style="{{ c.avStyle }}">
+                          {{ c.initials }}
+                          <span style="{{ c.srcStyle }}">{{ c.srcMark }}</span>
+                        </div>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                          <div style="display:flex;align-items:flex-start;gap:8px;width:100%">
+                            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                              <span style="font:600 14px/1.25 system-ui,sans-serif;letter-spacing:-.014em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.from }}</span>
+                              <span style="font:400 12px/1.25 system-ui,sans-serif;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.addr }} · {{ c.time }}</span>
+                            </span>
+                            <span style="{{ c.unreadDot }}"></span>
+                          </div>
+                          <span style="margin-top:1px;font:{{ c.subjWeight }} 15.5px/1.3 system-ui,sans-serif;letter-spacing:-.018em;color:var(--ink);text-wrap:pretty;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ c.subj }}</span>
+                          <span style="margin-top:2px;font:400 13.5px/1.5 system-ui,sans-serif;color:var(--ink);opacity:.72;display:-webkit-box;-webkit-line-clamp:{{ c.clamp }};-webkit-box-orient:vertical;overflow:hidden;text-wrap:pretty">{{ c.text }}</span>
+                          <sc-if value="{{ c.processing }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                              <span style="flex:none;width:13px;height:13px;border-radius:50%;border:2px solid var(--stroke);border-top-color:#0a84ff;animation:spin .8s linear infinite"></span>
+                              <span style="font:500 11.5px/1 system-ui,sans-serif;color:var(--ink3)">Определяем важность…</span>
+                              <span style="flex:1;height:9px;border-radius:999px;background:linear-gradient(90deg,var(--fill) 25%,var(--fill2) 50%,var(--fill) 75%);background-size:320px 100%;animation:shimmer 1.4s linear infinite"></span>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ c.done }}" hint-placeholder-val="{{ true }}">
+                            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:7px">
+                              <span style="{{ c.lvlChip }}"><span style="display:flex">{{ c.lvlIcon }}</span>{{ c.lvlLabel }}</span>
+                              <span style="{{ c.catStyle }}">{{ c.cat }}</span>
+                              <span style="{{ c.deadlineStyle }}"><span style="display:flex;opacity:.75">{{ iconClock }}</span>{{ c.deadline }}</span>
+                              <sc-if value="{{ c.action }}" hint-placeholder-val="{{ false }}">
+                                <span title="Требует действия" style="display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:999px;color:var(--warn-ink);background:rgba(255,159,10,.14);border:1px solid rgba(255,159,10,.3)">{{ iconBolt }}</span>
+                              </sc-if>
+                              <sc-if value="{{ c.reply }}" hint-placeholder-val="{{ false }}">
+                                <span title="Требует ответа" style="display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:999px;color:var(--info-ink);background:rgba(10,132,255,.14);border:1px solid rgba(10,132,255,.3)">{{ iconReply }}</span>
+                              </sc-if>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </button>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ feedEmpty }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin:26px auto;max-width:300px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:30px 24px;border-radius:26px;background:var(--glass2);border:1px solid var(--stroke2);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)">
+                      <div style="width:46px;height:46px;border-radius:16px;background:var(--fill);border:1px solid var(--stroke2);display:flex;align-items:center;justify-content:center;color:var(--ink3)">{{ iconSearch }}</div>
+                      <span style="font:600 15px/1.25 system-ui,sans-serif">Ничего не найдено</span>
+                      <span style="font:400 13px/1.45 system-ui,sans-serif;color:var(--ink2);text-wrap:pretty">По этим фильтрам сообщений нет. Попробуйте сбросить их или изменить запрос.</span>
+                      <button sc-camel-on-click="{{ resetFilters }}" style="margin-top:4px;appearance:none;border:1px solid var(--stroke);cursor:pointer;padding:9px 16px;border-radius:999px;font:600 13px/1 system-ui,sans-serif;color:var(--ink);background:var(--fill);transition:.2s" style-hover="background:var(--fill2)">Сбросить фильтры</button>
+                    </div>
+                  </sc-if>
+                  <div style="flex:none;height:{{ listTail }}"></div>
+                </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ tabSummary }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;min-height:0;overflow-y:auto;padding:{{ padHead }};animation:tabIn .34s cubic-bezier(.2,.9,.3,1) both">
+                <div style="display:flex;flex-direction:column;gap:16px;max-width:820px">
+                  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                      <h1 style="margin:0;font:600 clamp(26px,3vw,32px)/1.05 system-ui,sans-serif;letter-spacing:-.03em">Сводка</h1>
+                      <span style="font:400 13px/1.3 system-ui,sans-serif;color:var(--ink3)">{{ sumRange }}</span>
+                    </div>
+                    <div style="position:relative;display:flex;gap:0;width:246px;padding:4px;border-radius:999px;background:var(--glass);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi)">
+                      <div style="{{ periodLens }}"></div>
+                      <sc-for list="{{ periods }}" as="p" hint-placeholder-count="3">
+                        <button sc-camel-on-click="{{ p.go }}" style="{{ p.style }}">{{ p.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <sc-if value="{{ sumLoading }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:13px;padding:22px;border-radius:24px;background:var(--glass);backdrop-filter:blur(34px) saturate(200%);-webkit-backdrop-filter:blur(34px) saturate(200%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh2)">
+                      <span style="width:17px;height:17px;border-radius:50%;border:2px solid var(--stroke);border-top-color:#0a84ff;animation:spin .8s linear infinite"></span>
+                      <div style="display:flex;flex-direction:column;gap:3px">
+                        <span style="font:600 14.5px/1.2 system-ui,sans-serif">Сводка формируется</span>
+                        <span style="font:400 12.5px/1.3 system-ui,sans-serif;color:var(--ink2)">Обычно занимает 10–20 секунд</span>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ sumReady }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;flex-direction:column;gap:14px;animation:glassIn .45s cubic-bezier(.2,1,.3,1) both">
+                      <div style="display:grid;grid-template-columns:{{ sumCols }};gap:12px">
+                        <div style="grid-column:1 / -1;display:flex;flex-direction:column;gap:16px;padding:22px;border-radius:26px;background:var(--glass);backdrop-filter:blur(36px) saturate(200%);-webkit-backdrop-filter:blur(36px) saturate(200%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh)">
+                          <div style="display:flex;align-items:baseline;gap:10px">
+                            <span style="font:600 46px/1 system-ui,sans-serif;letter-spacing:-.045em">{{ sumTotal }}</span>
+                            <span style="font:400 14px/1.2 system-ui,sans-serif;color:var(--ink2)">новых сообщений</span>
+                          </div>
+                          <div style="display:flex;height:9px;border-radius:999px;overflow:hidden;gap:2px">
+                            <sc-for list="{{ sumBars }}" as="b" hint-placeholder-count="4">
+                              <div style="{{ b.style }}"></div>
+                            </sc-for>
+                          </div>
+                          <div style="display:flex;flex-wrap:wrap;gap:14px 22px">
+                            <sc-for list="{{ sumBars }}" as="b" hint-placeholder-count="4">
+                              <div style="display:flex;align-items:center;gap:8px">
+                                <span style="{{ b.dot }}"></span>
+                                <span style="font:600 15px/1 system-ui,sans-serif;letter-spacing:-.02em">{{ b.n }}</span>
+                                <span style="font:400 12.5px/1 system-ui,sans-serif;color:var(--ink2)">{{ b.label }}</span>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:13px;padding:18px;border-radius:22px;background:var(--glass2);backdrop-filter:blur(32px) saturate(200%);-webkit-backdrop-filter:blur(32px) saturate(200%);border:1px solid var(--stroke2);box-shadow:inset 0 1px 0 var(--hi)">
+                          <div style="width:38px;height:38px;flex:none;border-radius:13px;background:var(--fill);border:1px solid var(--stroke2);display:flex;align-items:center;justify-content:center;color:var(--info-ink)">{{ iconReplyLg }}</div>
+                          <div style="display:flex;flex-direction:column"><span style="font:600 22px/1.1 system-ui,sans-serif;letter-spacing:-.03em">{{ sumReply }}</span><span style="font:400 12.5px/1.2 system-ui,sans-serif;color:var(--ink2)">требуют ответа</span></div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:13px;padding:18px;border-radius:22px;background:var(--glass2);backdrop-filter:blur(32px) saturate(200%);-webkit-backdrop-filter:blur(32px) saturate(200%);border:1px solid var(--stroke2);box-shadow:inset 0 1px 0 var(--hi)">
+                          <div style="width:38px;height:38px;flex:none;border-radius:13px;background:var(--fill);border:1px solid var(--stroke2);display:flex;align-items:center;justify-content:center;color:var(--warn-ink)">{{ iconBoltLg }}</div>
+                          <div style="display:flex;flex-direction:column"><span style="font:600 22px/1.1 system-ui,sans-serif;letter-spacing:-.03em">{{ sumAction }}</span><span style="font:400 12.5px/1.2 system-ui,sans-serif;color:var(--ink2)">требуют действия</span></div>
+                        </div>
+                      </div>
+                      <div style="display:flex;flex-direction:column;gap:2px;padding:8px 8px 12px;border-radius:26px;background:var(--glass);backdrop-filter:blur(36px) saturate(200%);-webkit-backdrop-filter:blur(36px) saturate(200%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh2)">
+                        <span style="padding:12px 14px 8px;font:500 11px/1 system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">Главное за период</span>
+                        <sc-for list="{{ highlights }}" as="h" hint-placeholder-count="4">
+                          <button sc-camel-on-click="{{ h.open }}" style="appearance:none;border:0;background:transparent;cursor:pointer;text-align:left;display:flex;align-items:flex-start;gap:11px;padding:11px 14px;border-radius:17px;transition:.2s" style-hover="background:var(--fill)">
+                            <span style="{{ h.dot }}"></span>
+                            <span style="flex:1;min-width:0;font:400 13.5px/1.4 system-ui,sans-serif;color:var(--ink);text-wrap:pretty">{{ h.text }}</span>
+                            <span style="flex:none;color:var(--ink3);display:flex;margin-top:2px">{{ iconChev }}</span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <div style="flex:none;height:{{ listTail }}"></div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ tabConn }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;min-height:0;overflow-y:auto;padding:{{ padHead }};animation:tabIn .34s cubic-bezier(.2,.9,.3,1) both">
+                <div style="display:flex;flex-direction:column;gap:16px;max-width:720px">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <h1 style="margin:0;font:600 clamp(26px,3vw,32px)/1.05 system-ui,sans-serif;letter-spacing:-.03em">Источники</h1>
+                    <span style="font:400 13px/1.3 system-ui,sans-serif;color:var(--ink3)">{{ connSub }}</span>
+                  </div>
+                  <sc-for list="{{ conns }}" as="c" hint-placeholder-count="2">
+                    <div style="{{ c.wrap }}">
+                      <div style="display:flex;align-items:center;gap:13px;padding:16px 18px">
+                        <span style="{{ c.mark }}">{{ c.letter }}</span>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                          <span style="font:600 15px/1.2 system-ui,sans-serif;letter-spacing:-.01em">{{ c.name }}</span>
+                          <span style="{{ c.statusStyle }}">{{ c.status }}</span>
+                        </div>
+                        <button sc-camel-on-click="{{ c.act }}" style="{{ c.btn }}">{{ c.btnLabel }}</button>
+                      </div>
+                      <sc-if value="{{ c.warn }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;align-items:flex-start;gap:10px;margin:0 10px 10px;padding:12px 14px;border-radius:17px;background:rgba(255,159,10,.14);border:1px solid rgba(255,159,10,.32)">
+                          <span style="display:flex;color:var(--warn-ink);flex:none;margin-top:1px">{{ iconWarn }}</span>
+                          <span style="font:400 12.5px/1.45 system-ui,sans-serif;color:var(--ink2);text-wrap:pretty">Токен истёк — новые сообщения не поступают. Ранее полученные остаются в ленте: переподключение их не затронет.</span>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <button sc-camel-on-click="{{ openAdd }}" style="appearance:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;padding:16px;border-radius:22px;font:600 14.5px/1 system-ui,sans-serif;color:var(--ink);background:var(--glass2);backdrop-filter:blur(32px) saturate(200%);-webkit-backdrop-filter:blur(32px) saturate(200%);border:1px dashed var(--stroke);transition:.2s" style-hover="background:var(--fill2)">
+                    <span style="display:flex">{{ iconPlus }}</span>Добавить источник
+                  </button>
+                  <div style="flex:none;height:{{ listTail }}"></div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ tabSet }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;min-height:0;overflow-y:auto;padding:{{ padHead }};animation:tabIn .34s cubic-bezier(.2,.9,.3,1) both">
+                <div style="display:flex;flex-direction:column;gap:16px;max-width:720px">
+                  <h1 style="margin:0;font:600 clamp(26px,3vw,32px)/1.05 system-ui,sans-serif;letter-spacing:-.03em">Настройки</h1>
+                  <div style="display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:26px;background:var(--glass);backdrop-filter:blur(36px) saturate(200%);-webkit-backdrop-filter:blur(36px) saturate(200%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh2)">
+                    <div style="display:flex;flex-direction:column;gap:3px">
+                      <span style="font:600 15px/1.2 system-ui,sans-serif;letter-spacing:-.01em">Критерии важности</span>
+                      <span style="font:400 12.5px/1.4 system-ui,sans-serif;color:var(--ink2);text-wrap:pretty">Свободный текст — контекст для модели, а не жёсткие правила.</span>
+                    </div>
+                    <div style="border-radius:19px;background:var(--fill);border:1px solid var(--stroke2);padding:13px 15px">
+                      <textarea sc-camel-on-change="{{ onCriteria }}" value="{{ criteria }}" placeholder="Важны письма от клиентов Northline, всё про договоры и сроки…" style="width:100%;height:104px;resize:none;border:0;outline:none;background:transparent;color:var(--ink);font:400 14.5px/1.5 system-ui,sans-serif"></textarea>
+                    </div>
+                    <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:17px;background:rgba(255,159,10,.13);border:1px solid rgba(255,159,10,.3)">
+                      <span style="display:flex;color:var(--warn-ink);flex:none;margin-top:1px">{{ iconWarn }}</span>
+                      <span style="font:400 12.5px/1.45 system-ui,sans-serif;color:var(--ink2);text-wrap:pretty">После сохранения существующие сообщения будут переоценены. Это происходит фоново и может занять до нескольких часов.</span>
+                    </div>
+                    <button sc-camel-on-click="{{ saveCriteria }}" style="align-self:flex-start;appearance:none;border:0;cursor:pointer;padding:12px 20px;border-radius:999px;font:600 14px/1 system-ui,sans-serif;color:#fff;background:linear-gradient(150deg,#4aa3ff,#0a6fe0);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 8px 20px rgba(10,111,224,.35);transition:transform .18s cubic-bezier(.3,1.4,.4,1)" style-hover="transform:translateY(-1.5px)" style-active="transform:translateY(1px) scale(.985)">Сохранить критерии</button>
+                  </div>
+                  <div style="display:flex;flex-direction:column;padding:8px;border-radius:26px;background:var(--glass);backdrop-filter:blur(36px) saturate(200%);-webkit-backdrop-filter:blur(36px) saturate(200%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh2)">
+                    <sc-for list="{{ setRows }}" as="r" hint-placeholder-count="4">
+                      <button sc-camel-on-click="{{ r.go }}" style="appearance:none;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px;border-radius:19px;text-align:left;transition:.2s" style-hover="background:var(--fill)">
+                        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                          <span style="font:{{ r.weight }} 14.5px/1.2 system-ui,sans-serif;color:{{ r.color }};letter-spacing:-.01em">{{ r.label }}</span>
+                          <span style="font:400 12.5px/1.3 system-ui,sans-serif;color:var(--ink3)">{{ r.hint }}</span>
+                        </span>
+                        <span style="flex:none;color:var(--ink3);display:flex">{{ iconChev }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                  <div style="flex:none;height:{{ listTail }}"></div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+          <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ true }}">
+            <div style="position:absolute;left:0;right:0;bottom:0;padding:10px 16px 24px;display:flex;justify-content:center;pointer-events:none;background:linear-gradient(to top,var(--chrome),transparent);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)">
+              <div style="position:relative;display:flex;gap:0;padding:7px;border-radius:999px;background:var(--glass);backdrop-filter:blur(30px) saturate(190%);-webkit-backdrop-filter:blur(30px) saturate(190%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh);pointer-events:auto">
+                <div style="{{ lensStyle }}"></div>
+                <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4">
+                  <button sc-camel-on-click="{{ n.go }}" style="{{ n.tabStyle }}">
+                    <span style="display:flex">{{ n.icon }}</span>
+                    <span style="font:600 9.5px/1 system-ui,sans-serif;letter-spacing:.01em">{{ n.label }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <sc-if value="{{ hasOverlay }}" hint-placeholder-val="{{ false }}">
+          <div sc-camel-on-click="{{ closeAll }}" style="position:absolute;inset:0;background:rgba(0,0,0,.34);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:glassIn .3s ease both;z-index:5"></div>
+        </sc-if>
+        <sc-if value="{{ hasDetail }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ sheetStyle }}">
+            <div style="flex:none;display:flex;align-items:center;gap:10px;padding:16px 16px 10px">
+              <button sc-camel-on-click="{{ closeAll }}" style="appearance:none;cursor:pointer;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ink2);background:var(--fill);border:1px solid var(--stroke2);transition:.2s" style-hover="background:var(--fill2);color:var(--ink)">{{ iconClose }}</button>
+              <span style="flex:1;min-width:0;font:600 13.5px/1.2 system-ui,sans-serif;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ dSrcLabel }}</span>
+              <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:999px;font:600 13px/1 system-ui,sans-serif;color:#fff;background:linear-gradient(150deg,#4aa3ff,#0a6fe0);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 6px 18px rgba(10,111,224,.35);transition:transform .18s" style-hover="transform:translateY(-1.5px);color:#fff">{{ iconExt }}{{ dOpenLabel }}</a>
+            </div>
+            <div style="flex:1;min-height:0;overflow-y:auto;padding:6px 20px 24px;display:flex;flex-direction:column;gap:16px">
+              <div style="display:flex;align-items:center;gap:11px">
+                <span style="{{ dMark }}">{{ dLetter }}</span>
+                <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                  <span style="font:600 14.5px/1.2 system-ui,sans-serif;letter-spacing:-.01em">{{ dFrom }}</span>
+                  <span style="font:400 12.5px/1.2 system-ui,sans-serif;color:var(--ink3)">{{ dAddr }} · {{ dTime }}</span>
+                </div>
+              </div>
+              <h2 style="margin:0;font:600 clamp(21px,2.4vw,26px)/1.22 system-ui,sans-serif;letter-spacing:-.028em;text-wrap:pretty">{{ dSubj }}</h2>
+              <div style="display:flex;flex-direction:column;gap:9px;padding:16px;border-radius:22px;background:linear-gradient(150deg,rgba(10,132,255,.20),rgba(10,132,255,.06));border:1px solid rgba(10,132,255,.32);box-shadow:inset 0 1px 0 rgba(255,255,255,.28)">
+                <span style="font:600 10.5px/1 system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:var(--info-ink)">Краткое содержание</span>
+                <span style="font:400 14.5px/1.5 system-ui,sans-serif;color:var(--ink);text-wrap:pretty">{{ dSum }}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px">
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font:500 12.5px/1 system-ui,sans-serif;color:var(--ink2);background:var(--fill);border:1px solid var(--stroke2)">Категория: <span style="color:var(--ink);font-weight:600">{{ dCat }}</span></span>
+                <span style="{{ dDeadlineStyle }}"><span style="display:flex;opacity:.85">{{ iconClock }}</span>{{ dDeadline }}</span>
+                <sc-if value="{{ dAction }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font:500 12.5px/1 system-ui,sans-serif;color:var(--warn-ink);background:rgba(255,159,10,.14);border:1px solid rgba(255,159,10,.32)"><span style="display:flex">{{ iconBolt }}</span>Требует действия</span>
+                </sc-if>
+                <sc-if value="{{ dReply }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font:500 12.5px/1 system-ui,sans-serif;color:var(--info-ink);background:rgba(10,132,255,.14);border:1px solid rgba(10,132,255,.32)"><span style="display:flex">{{ iconReply }}</span>Требует ответа</span>
+                </sc-if>
+              </div>
+              <p style="margin:0;font:400 15px/1.6 system-ui,sans-serif;color:var(--ink2);text-wrap:pretty">{{ dText }}</p>
+              <div style="display:flex;flex-direction:column;gap:11px;padding:16px;border-radius:22px;background:var(--glass2);border:1px solid var(--stroke2);box-shadow:inset 0 1px 0 var(--hi)">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                  <span style="font:600 13px/1.2 system-ui,sans-serif">Уровень важности</span>
+                  <span style="{{ savedStyle }}"><span style="display:flex">{{ iconCheck }}</span>Сохранено</span>
+                </div>
+                <div style="position:relative;display:flex;gap:0;padding:4px;border-radius:17px;background:var(--fill);border:1px solid var(--stroke2)">
+                  <div style="{{ lvlLensStyle }}"></div>
+                  <sc-for list="{{ levelOpts }}" as="l" hint-placeholder-count="4">
+                    <button sc-camel-on-click="{{ l.go }}" style="{{ l.style }}">{{ l.label }}</button>
+                  </sc-for>
+                </div>
+                <span style="font:400 11.5px/1.4 system-ui,sans-serif;color:var(--ink3);text-wrap:pretty">Исправление уходит в модель как обратная связь и влияет на оценку похожих сообщений.</span>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ addOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ addStyle }}">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 4px 2px">
+              <span style="font:600 17px/1.2 system-ui,sans-serif;letter-spacing:-.02em">Выберите сервис</span>
+              <button sc-camel-on-click="{{ closeAll }}" style="appearance:none;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ink2);background:var(--fill);border:1px solid var(--stroke2);transition:.2s" style-hover="background:var(--fill2);color:var(--ink)">{{ iconClose }}</button>
+            </div>
+            <sc-for list="{{ services }}" as="sv" hint-placeholder-count="5">
+              <button sc-camel-on-click="{{ sv.go }}" style="{{ sv.style }}">
+                <span style="{{ sv.mark }}">{{ sv.letter }}</span>
+                <span style="flex:1;min-width:0;text-align:left;display:flex;flex-direction:column;gap:2px">
+                  <span style="font:600 14.5px/1.2 system-ui,sans-serif;letter-spacing:-.01em">{{ sv.name }}</span>
+                  <span style="font:400 12px/1.2 system-ui,sans-serif;color:var(--ink3)">{{ sv.hint }}</span>
+                </span>
+                <span style="{{ sv.tagStyle }}">{{ sv.tag }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:0;right:0;bottom:{{ toastBottom }};display:flex;justify-content:center;pointer-events:none;z-index:20">
+            <div style="display:flex;align-items:center;gap:9px;padding:12px 18px;border-radius:999px;background:var(--glass);backdrop-filter:blur(30px) saturate(190%);-webkit-backdrop-filter:blur(30px) saturate(190%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh);animation:dropIn .32s cubic-bezier(.2,1.3,.3,1) both">
+              <span style="display:flex;color:var(--ok-ink)">{{ iconCheck }}</span>
+              <span style="font:500 13.5px/1 system-ui,sans-serif;color:var(--ink)">{{ toastText }}</span>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:980},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Вход&quot;,&quot;Лента&quot;,&quot;Сводка&quot;,&quot;Источники&quot;],&quot;default&quot;:&quot;Вход&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Демо&quot;},&quot;liveDemo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Демо&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Просторно&quot;,&quot;Компактно&quot;],&quot;default&quot;:&quot;Просторно&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Лента&quot;}}">
+const MSGS = [
+  {id:1,src:'gmail',from:'Анна Ковалёва',addr:'a.kovaleva@northline.io',time:'09:41',subj:'Договор Northline — правки до конца дня',text:'Юристы вернули версию с комментариями. Нужна ваша реакция по пунктам 4.2 и 7 до 18:00, иначе подписание уезжает на следующую неделю.',level:'CRITICAL',action:true,reply:true,unread:true,cat:'Юридическое',deadline:'Сегодня, 18:00',sum:'Правки к договору требуют вашего решения по двум пунктам до 18:00 сегодня.',status:'done'},
+  {id:2,src:'gmail',from:'Налоговая служба',addr:'noreply@nalog.gov',time:'08:52',subj:'Уведомление: срок подачи декларации',text:'Напоминаем о необходимости подать декларацию за отчётный период до 30 сентября. При нарушении срока начисляется штраф.',level:'HIGH',action:true,reply:false,unread:true,cat:'Документы',deadline:'30 сентября',sum:'Декларацию нужно подать до 30 сентября, иначе штраф.',status:'done'},
+  {id:3,src:'gmail',from:'Stripe',addr:'no-reply@stripe.com',time:'08:30',subj:'Платёж на $1 240.00 прошёл успешно',text:'Ваш ежемесячный платёж по подписке Northline Pro обработан. Квитанция во вложении, следующее списание 2 октября.',level:'NORMAL',action:false,reply:false,unread:false,cat:'Финансы',deadline:'',sum:'Ежемесячный платёж $1 240.00 успешно прошёл.',status:'done'},
+  {id:4,src:'gmail',from:'Ольга Тимченко',addr:'o.timchenko@hr-lab.ru',time:'Вчера, 19:04',subj:'Оффер senior-разработчику — нужна ваша виза',text:'Финальный кандидат ждёт подтверждения вилки: 380–420 тыс. Он держит второй оффер до вторника, поэтому решение хорошо бы принять завтра.',level:'HIGH',action:true,reply:true,unread:true,cat:'Найм',deadline:'Вторник',sum:'Требуется согласование вилки по офферу; кандидат держит второй оффер до вторника.',status:'done'},
+  {id:5,src:'gmail',from:'AWS Billing',addr:'aws-billing@amazon.com',time:'Вчера, 16:20',subj:'Прогноз счёта превышен на 42%',text:'Текущее потребление по аккаунту 4471-9902 превышает бюджет месяца. Основной рост — RDS и исходящий трафик CloudFront.',level:'HIGH',action:true,reply:false,unread:false,cat:'Инфраструктура',deadline:'',sum:'Расход по AWS выше бюджета на 42%, рост в RDS и CloudFront.',status:'done'},
+  {id:6,src:'gmail',from:'Мария Соколова',addr:'m.sokolova@northline.io',time:'Вчера, 14:10',subj:'Макеты онбординга — три варианта',text:'Закинула в папку три направления: минимальное, с прогрессом и с примерами. Посмотри, когда будет минутка — не срочно, до ревью в пятницу.',level:'NORMAL',action:false,reply:true,unread:false,cat:'Дизайн',deadline:'Пятница',sum:'Три варианта макетов онбординга готовы, ревью в пятницу.',status:'done'},
+  {id:7,src:'gmail',from:'Сбербанк Бизнес',addr:'info@sberbank.ru',time:'Вчера, 11:37',subj:'Выписка по счёту за август',text:'Выписка сформирована и доступна в личном кабинете. Обороты за месяц — 4,8 млн ₽.',level:'NORMAL',action:false,reply:false,unread:false,cat:'Финансы',deadline:'',sum:'Августовская выписка готова, обороты 4,8 млн ₽.',status:'done'},
+  {id:8,src:'gmail',from:'Product Weekly',addr:'digest@productweekly.co',time:'Пн',subj:'Выпуск 214: что нового в AI-инструментах',text:'Еженедельная подборка: девять разборов, интервью с командой Linear и колонка про приоритизацию бэклога.',level:'LOW',action:false,reply:false,unread:false,cat:'Рассылка',deadline:'',sum:'Регулярный дайджест, действий не требует.',status:'done'},
+  {id:9,src:'gmail',from:'Figma',addr:'updates@figma.com',time:'Пн',subj:'Ваш план Organization продлён на год',text:'Спасибо, что остаётесь с нами. Счёт и детали тарифа доступны в настройках биллинга.',level:'LOW',action:false,reply:false,unread:false,cat:'Сервисы',deadline:'',sum:'Подписка Figma продлена автоматически.',status:'done'},
+  {id:10,src:'gmail',from:'Кирилл Ушаков',addr:'k.ushakov@vendorlab.io',time:'Вс',subj:'Коммерческое предложение по интеграции',text:'Подготовили расчёт под ваш объём: 2,1 млн ₽ за внедрение и 180 тыс. ₽ в месяц. Готовы обсудить на звонке.',level:'NORMAL',action:false,reply:true,unread:false,cat:'Партнёры',deadline:'',sum:'Вендор прислал расчёт: 2,1 млн ₽ внедрение, 180 тыс. ₽ в месяц.',status:'done'},
+  {id:11,src:'gmail',from:'Google Workspace',addr:'security@google.com',time:'Сб',subj:'Новый вход с устройства MacBook Pro',text:'Обнаружен вход в аккаунт из Москвы. Если это были вы, действий не требуется.',level:'LOW',action:false,reply:false,unread:false,cat:'Безопасность',deadline:'',sum:'Уведомление о входе с нового устройства.',status:'done'},
+  {id:12,src:'tg',from:'Инвесторы · Seed round',addr:'групповой чат, 9 участников',time:'09:22',subj:'Питч-дек — шесть вопросов от фонда',text:'Прислали вопросы по юнит-экономике: CAC по каналам, retention 6+ месяцев и структура косвенных расходов. Ждут ответ к среде.',level:'CRITICAL',action:true,reply:true,unread:true,cat:'Инвестиции',deadline:'Среда',sum:'Фонд ждёт ответы по юнит-экономике к среде.',status:'done'},
+  {id:13,src:'tg',from:'Дима · Продукт',addr:'@dmitry_pm',time:'09:12',subj:'Релиз 2.4 — блокер на бэкенде',text:'Ребята нашли гонку в очереди задач: при пиковой нагрузке часть событий обрабатывается дважды. Предлагаю сдвинуть релиз на завтра утро. Ок?',level:'HIGH',action:true,reply:true,unread:true,cat:'Разработка',deadline:'Сегодня',sum:'Просят подтвердить перенос релиза 2.4 на завтра из-за блокера.',status:'done'},
+  {id:14,src:'tg',from:'Northline · дежурство',addr:'@northline_alerts',time:'07:48',subj:'API p95 вырос до 1,8 с',text:'Алерт по латентности держится 20 минут. Дежурный смотрит, похоже на медленный запрос в отчётах.',level:'HIGH',action:false,reply:false,unread:true,cat:'Инфраструктура',deadline:'',sum:'Латентность API выросла, дежурный уже разбирается.',status:'done'},
+  {id:15,src:'tg',from:'Саша Ким',addr:'@sasha_k',time:'Вчера, 21:30',subj:'Кофе на неделе?',text:'Я в городе до пятницы, давай пересечёмся — расскажу, чем закончилась история с их раундом.',level:'NORMAL',action:false,reply:true,unread:false,cat:'Личное',deadline:'Пятница',sum:'Предлагает встретиться до пятницы.',status:'done'},
+  {id:16,src:'tg',from:'Лена · Бухгалтерия',addr:'@lena_acc',time:'Вчера, 17:02',subj:'Нужны закрывающие по трём подрядчикам',text:'Без актов не закрою квартал. Скинь, пожалуйста, до конца недели — иначе перенесётся в следующий период.',level:'HIGH',action:true,reply:true,unread:false,cat:'Финансы',deadline:'Пятница',sum:'Нужны закрывающие документы по трём подрядчикам до конца недели.',status:'done'},
+  {id:17,src:'tg',from:'Дизайн-ревью',addr:'групповой чат, 5 участников',time:'Пн',subj:'Обсудили новую навигацию',text:'Сошлись на варианте с боковой панелью. Максим, нужен твой финальный голос перед разработкой.',level:'NORMAL',action:true,reply:true,unread:false,cat:'Дизайн',deadline:'',sum:'Команда выбрала боковую навигацию, ждут ваш голос.',status:'done'},
+  {id:18,src:'tg',from:'Спортзал «Форма»',addr:'@formagym',time:'Сб',subj:'Абонемент заканчивается через 5 дней',text:'Продлите до 7 сентября, чтобы сохранить текущую цену — с октября тарифы вырастут.',level:'LOW',action:false,reply:false,unread:false,cat:'Личное',deadline:'Через 5 дней',sum:'Абонемент истекает через 5 дней.',status:'done'},
+  {id:19,src:'tg',from:'Доставка «Самокат»',addr:'@samokat_bot',time:'Сб',subj:'Заказ доставлен',text:'Курьер оставил заказ у двери. Спасибо, что выбираете нас!',level:'LOW',action:false,reply:false,unread:false,cat:'Сервисы',deadline:'',sum:'Заказ доставлен, действий не требуется.',status:'done'},
+];
+const LV = {CRITICAL:{l:'Критично',c:'#ff4a3d',ct:'var(--crit-ink)',t:'rgba(255,74,61,.16)'},HIGH:{l:'Важно',c:'#ff9f0a',ct:'var(--warn-ink)',t:'rgba(255,159,10,.16)'},NORMAL:{l:'Обычное',c:'#0a84ff',ct:'var(--info-ink)',t:'rgba(10,132,255,.16)'},LOW:{l:'Неважно',c:'#98a2b3',ct:'var(--mute-ink)',t:'rgba(152,162,179,.14)'}};
+
+class Component extends DCLogic {
+  state = {
+    th:'dark', dev:'phone', stage:'auth', auth:'login', tab:'feed',
+    open:null, msgs:MSGS, q:'', showFilters:false, newIds:[], toast:null, feedSrc:null,
+    f:{src:'all',level:'all',status:'all',reply:'all',action:'all',period:'all'},
+    criteria:'', period:'24ч', conns:{gmail:'active',tg:'reauth'}, addOpen:false, lvlPick:null
+  };
+  componentDidMount(){
+    document.body.dataset.th = this.state.th;
+    const st = this.props.startScreen;
+    if(st && st!=='Вход'){
+      const tab = st==='Сводка'?'summary':(st==='Источники'?'connections':'feed');
+      this.setState({stage:'app',tab});
+      this.startLive();
+    }
+  }
+  componentDidUpdate(_,p){ if(p.th!==this.state.th) document.body.dataset.th=this.state.th; }
+  set = (k,v) => this.setState({[k]:v});
+  vars(th){
+    return th==='light'
+      ? '--ink:#0d1526;--ink2:rgba(11,18,34,.68);--ink3:rgba(11,18,34,.46);--glass:linear-gradient(155deg,rgba(255,255,255,.30),rgba(255,255,255,.09));--glass2:linear-gradient(155deg,rgba(255,255,255,.17),rgba(255,255,255,.05));--stroke:rgba(255,255,255,.62);--stroke2:rgba(255,255,255,.3);--hi:rgba(255,255,255,.98);--sh:0 28px 70px rgba(16,32,86,.30),0 2px 6px rgba(16,32,86,.14);--sh2:0 12px 30px rgba(16,32,86,.18);--fill:rgba(255,255,255,.20);--fill2:rgba(255,255,255,.38);--page:radial-gradient(58% 46% at 82% 8%,rgba(255,186,224,.9),transparent 62%),radial-gradient(66% 58% at 8% 88%,rgba(126,226,255,.85),transparent 66%),linear-gradient(158deg,#9dbcff 0%,#5a7fe0 48%,#31409c 100%);--chrome:rgba(255,255,255,.26);'
+      : '--ink:#f2f4f7;--ink2:rgba(255,255,255,.60);--ink3:rgba(255,255,255,.34);--glass:linear-gradient(155deg,rgba(255,255,255,.055),rgba(255,255,255,.012));--glass2:linear-gradient(155deg,rgba(255,255,255,.03),rgba(255,255,255,.008));--stroke:rgba(255,255,255,.14);--stroke2:rgba(255,255,255,.06);--hi:rgba(255,255,255,.98);--sh:0 28px 70px rgba(0,0,0,.62),0 2px 8px rgba(0,0,0,.34);--sh2:0 12px 30px rgba(0,0,0,.4);--fill:rgba(255,255,255,.035);--fill2:rgba(255,255,255,.075);--page:radial-gradient(52% 40% at 78% 6%,rgba(24,92,150,.5),transparent 66%),radial-gradient(46% 38% at 12% 92%,rgba(120,20,86,.42),transparent 68%),radial-gradient(120% 100% at 30% 20%,#0b0b0d 0%,#040405 55%,#000 100%);--chrome:rgba(255,255,255,.05);';
+  }
+  toast = (t) => { this.setState({toast:t}); clearTimeout(this._tt); this._tt=setTimeout(()=>this.setState({toast:null}),2200); };
+  _queue = [
+    {src:'gmail',from:'Виктор Лебедев',addr:'v.lebedev@northline.io',subj:'Re: Договор Northline — согласовал п. 7',text:'Принял вашу формулировку по седьмому пункту, остаётся 4.2. Если пришлёте до вечера, подпишем сегодня.',
+     res:{level:'CRITICAL',action:true,reply:true,cat:'Юридическое',deadline:'Сегодня, 18:00',sum:'Пункт 7 согласован, остаётся решение по 4.2 — подпись сегодня.'}},
+    {src:'tg',from:'Дима · Продукт',addr:'@dmitry_pm',subj:'Фикс блокера в мастере',text:'Гонку в очереди починили, тесты зелёные. Возвращаем релиз на сегодняшний вечер?',
+     res:{level:'HIGH',action:true,reply:true,cat:'Разработка',deadline:'Сегодня',sum:'Блокер починен, спрашивают про возврат релиза на вечер.'}},
+    {src:'gmail',from:'Notion',addr:'team@notion.so',subj:'Вас упомянули в «Q4 планирование»',text:'Мария Соколова оставила комментарий с вашим упоминанием в разделе «Ресурсы дизайна».',
+     res:{level:'LOW',action:false,reply:false,cat:'Сервисы',deadline:'',sum:'Упоминание в документе, действий не требует.'}}
+  ];
+  liveTick = () => {
+    const tpl = this._queue.shift();
+    if(!tpl){ clearInterval(this._iv); return; }
+    const id = 900 + this._queue.length;
+    const m = {...tpl,id,time:'сейчас',level:'NORMAL',action:false,reply:false,unread:true,status:'processing',cat:'—',deadline:'',sum:''};
+    delete m.res;
+    this.setState(s=>({msgs:[m,...s.msgs],newIds:[...s.newIds,id]}));
+    setTimeout(()=>this.setState(s=>({msgs:s.msgs.map(x=>x.id===id?{...x,status:'done',...tpl.res}:x)})),2600);
+    setTimeout(()=>this.setState(s=>({newIds:s.newIds.filter(x=>x!==id)})),9000);
+  };
+  startLive = () => { if(this.props.liveDemo===false) return; clearInterval(this._iv); this._iv = setInterval(this.liveTick, 16000); setTimeout(this.liveTick,6000); };
+  seg = (on) => `position:relative;z-index:1;flex:1;appearance:none;border:0;background:transparent;cursor:pointer;font:600 12.5px/1 system-ui,sans-serif;letter-spacing:.01em;padding:8px 6px;border-radius:999px;text-align:center;white-space:nowrap;transition:color .32s cubic-bezier(.4,1.1,.4,1);color:${on?'var(--ink)':'var(--ink2)'}`;
+  lens = (n,idx,r) => `position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px) / ${n});border-radius:${r};background:linear-gradient(150deg,rgba(255,255,255,.26),rgba(255,255,255,.08));border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),0 4px 14px rgba(0,0,0,.16);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:translateX(calc(${idx} * 100%));transition:transform .48s cubic-bezier(.32,1.5,.4,1)`;
+  icon(name,sz){
+    const h = React.createElement, p = {width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round'};
+    const d = {
+      feed:['M4 6.5h16M4 12h16M4 17.5h10'],
+      summary:['M5 19V10M12 19V5M19 19v-6'],
+      connections:['M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71','M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'],
+      settings:['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z','M12.22 2.6h-.44a1.9 1.9 0 0 0-1.9 1.9v.13a1.9 1.9 0 0 1-.95 1.64l-.4.24a1.9 1.9 0 0 1-1.9 0l-.11-.07a1.9 1.9 0 0 0-2.6.7l-.22.38a1.9 1.9 0 0 0 .7 2.6l.11.06a1.9 1.9 0 0 1 .95 1.64v.46a1.9 1.9 0 0 1-.95 1.65l-.11.06a1.9 1.9 0 0 0-.7 2.6l.22.38a1.9 1.9 0 0 0 2.6.7l.11-.07a1.9 1.9 0 0 1 1.9 0l.4.24a1.9 1.9 0 0 1 .95 1.64v.13a1.9 1.9 0 0 0 1.9 1.9h.44a1.9 1.9 0 0 0 1.9-1.9v-.13a1.9 1.9 0 0 1 .95-1.64l.4-.24a1.9 1.9 0 0 1 1.9 0l.11.07a1.9 1.9 0 0 0 2.6-.7l.22-.38a1.9 1.9 0 0 0-.7-2.6l-.11-.06a1.9 1.9 0 0 1-.95-1.65v-.46a1.9 1.9 0 0 1 .95-1.64l.11-.06a1.9 1.9 0 0 0 .7-2.6l-.22-.38a1.9 1.9 0 0 0-2.6-.7l-.11.07a1.9 1.9 0 0 1-1.9 0l-.4-.24a1.9 1.9 0 0 1-.95-1.64V4.5a1.9 1.9 0 0 0-1.9-1.9Z'],
+      search:['M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z','m20 20-3.9-3.9'],
+      filter:['M4 6h16M7 12h10M10 18h4'],
+      back:['m14.5 5-7 7 7 7'],
+      close:['M6.5 6.5l11 11M17.5 6.5l-11 11'],
+      bolt:['m13 2-9 12h7l-1 8 9-12h-7l1-8Z'],
+      reply:['M9 7 4 12l5 5','M4 12h9a7 7 0 0 1 7 7v1'],
+      clock:['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z','M12 7.4V12l3 1.8'],
+      ext:['M14 4h6v6','M20 4 11 13','M18 14.5V19a1.6 1.6 0 0 1-1.6 1.6H5A1.6 1.6 0 0 1 3.4 19V7.6A1.6 1.6 0 0 1 5 6h4.5'],
+      chev:['m9 5 7 7-7 7'],
+      warn:['M12 3.6 2.6 20h18.8L12 3.6Z','M12 10v4','M12 17.3v.1'],
+      check:['m4.5 12.5 5 5 10-11'],
+      plus:['M12 5v14M5 12h14'],
+      dot:['M12 12.6a.6.6 0 1 0 0-1.2.6.6 0 0 0 0 1.2Z']
+    }[name] || [];
+    return h('svg', p, d.map((dd,i)=>h('path',{key:i,d:dd})));
+  }
+  renderVals(){
+    const s = this.state, phone = s.dev==='phone';
+    const unread = s.msgs.filter(m=>m.unread).length;
+    const reauth = Object.values(s.conns).filter(v=>v==='reauth').length;
+    const tabs = [['feed','Лента',unread],['summary','Сводка',0],['connections','Источники',reauth],['settings','Настройки',0]];
+    const TW = 79;
+    const nav = tabs.map(([k,label,badge],i)=>{
+      const on = s.tab===k;
+      return {
+        key:k, label, badge: badge? String(badge):'', icon:this.icon(k,phone?21:17), go:()=>this.setState({tab:k,open:null}),
+        style:`position:relative;z-index:1;flex:none;height:40px;appearance:none;border:0;cursor:pointer;display:flex;align-items:center;gap:11px;padding:0 12px;border-radius:14px;font:${on?600:500} 13.5px/1 system-ui,sans-serif;color:${on?'var(--ink)':'var(--ink2)'};background:transparent;transition:color .32s cubic-bezier(.4,1.1,.4,1)`,
+        badgeStyle: badge?`min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:flex;align-items:center;justify-content:center;font:600 11px/1 system-ui,sans-serif;color:#fff;background:${k==='connections'?'#ff9f0a':'#0a84ff'};box-shadow:inset 0 1px 0 rgba(255,255,255,.4)`:'display:none',
+        tabStyle:`position:relative;z-index:1;appearance:none;border:0;background:transparent;cursor:pointer;width:${TW}px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 0 8px;color:${on?'var(--ink)':'var(--ink2)'};transition:color .25s`
+      };
+    });
+    const idx = tabs.findIndex(t=>t[0]===s.tab);
+    const f = s.f, q = s.q.trim().toLowerCase();
+    const match = m => (f.src==='all'||f.src===m.src)
+      && (f.level==='all'||f.level===m.level)
+      && (f.status==='all'||(f.status==='unread'?m.unread:(f.status==='read'?!m.unread:m.status==='done')))
+      && (f.reply==='all'||(f.reply==='yes')===!!m.reply)
+      && (f.action==='all'||(f.action==='yes')===!!m.action)
+      && (!q || (m.from+' '+m.subj+' '+m.text).toLowerCase().includes(q));
+    const list = s.msgs.filter(m => m.src===s.feedSrc && match(m));
+    const chip = (on,color) => `appearance:none;cursor:pointer;padding:6px 11px;border-radius:999px;font:${on?600:500} 12px/1 system-ui,sans-serif;color:${on?(color||'#fff'):'var(--ink2)'};background:${on?(color?'transparent':'linear-gradient(150deg,#4aa3ff,#0a6fe0)'):'var(--fill)'};border:1px solid ${on?(color||'transparent'):'var(--stroke2)'};box-shadow:${on&&!color?'inset 0 1px 0 rgba(255,255,255,.4),0 3px 10px rgba(10,111,224,.3)':'none'};transition:.2s cubic-bezier(.4,1.1,.4,1)`;
+    const grp = (key,label,opts) => ({key,label,opts:opts.map(([v,l])=>({key:v,label:l,style:chip(f[key]===v),go:()=>this.setState({f:{...f,[key]:v}})}))});
+    const filterGroups = [
+      grp('level','Важность',[['all','Любая'],['CRITICAL','Критично'],['HIGH','Важно'],['NORMAL','Обычное'],['LOW','Неважно']]),
+      grp('status','Статус',[['all','Все'],['unread','Не прочитано'],['read','Прочитано'],['done','Обработано']]),
+      grp('reply','Ответ',[['all','Неважно'],['yes','Нужен'],['no','Не нужен']]),
+      grp('action','Действие',[['all','Неважно'],['yes','Нужно'],['no','Не нужно']]),
+      grp('period','Период',[['all','Всё время'],['today','Сегодня'],['week','Неделя'],['month','Месяц']])
+    ];
+    const dirty = Object.values(f).some(v=>v!=='all');
+    const srcMeta = {gmail:{bg:'linear-gradient(150deg,#ff7a68,#d93025)',t:'Gmail'},tg:{bg:'linear-gradient(150deg,#54c4f5,#0f88c8)',t:'Telegram'}};
+    const dense = this.props.density==='Компактно';
+    const AV = ['linear-gradient(150deg,#ff9f6a,#e0533d)','linear-gradient(150deg,#67d6a8,#12876b)','linear-gradient(150deg,#8fb5ff,#3a5fd0)','linear-gradient(150deg,#e79bff,#8a2bc4)','linear-gradient(150deg,#ffd06a,#e08a12)','linear-gradient(150deg,#7fd8f0,#1a7fa8)'];
+    const cards = list.map(m=>{
+      const L = LV[m.level], isNew = s.newIds.includes(m.id), sm = srcMeta[m.src];
+      const parts = m.from.replace(/[·@]/g,' ').trim().split(/\s+/).filter(Boolean);
+      const initials = (parts[0][0] + (parts[1]?parts[1][0]:'')).toUpperCase();
+      let hash = 0; for(const ch of m.from) hash = (hash*31 + ch.charCodeAt(0)) % 997;
+      return {
+        pad: dense?'12px 14px 12px 17px':'16px 17px 15px 19px', clamp: dense?1:3,
+        key:m.id, from:m.from, time:m.time, subj:m.subj, text:m.text, action:!!m.action, reply:!!m.reply,
+        processing:m.status==='processing', done:m.status!=='processing',
+        subjWeight: m.unread?600:520,
+        initials, srcName:sm.t, addr:m.addr, cat:m.cat && m.cat!=='—' ? m.cat : '',
+        catStyle: m.cat && m.cat!=='—' ? 'display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font:500 11.5px/1 system-ui,sans-serif;color:var(--ink2);background:var(--fill);border:1px solid var(--stroke2)' : 'display:none',
+        deadline:m.deadline||'',
+        deadlineStyle: m.deadline ? `display:inline-flex;align-items:center;gap:5px;padding:4px 9px 4px 7px;border-radius:999px;font:600 11.5px/1 system-ui,sans-serif;color:${m.level==='CRITICAL'?'var(--crit-ink)':'var(--ink)'};background:var(--fill2);border:1px solid var(--stroke2)` : 'display:none',
+        avStyle:`position:relative;flex:none;width:38px;height:38px;border-radius:13px;display:flex;align-items:center;justify-content:center;font:600 13.5px/1 system-ui,sans-serif;color:#fff;letter-spacing:.01em;background:${AV[hash%AV.length]};box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 3px 10px rgba(0,0,0,.22)`,
+        lvlLabel:L.l, lvlIcon:this.icon(m.level==='CRITICAL'?'warn':(m.level==='HIGH'?'bolt':(m.level==='NORMAL'?'dot':'clock')),12),
+        lvlChip:`display:inline-flex;align-items:center;gap:5px;padding:4px 10px 4px 8px;border-radius:999px;font:600 11.5px/1 system-ui,sans-serif;color:${L.ct};background:${L.t};border:1px solid ${L.c}44`,
+        srcMark:React.createElement('span',{style:{font:'700 8px/1 system-ui,sans-serif',color:'#fff'}}, m.src==='gmail'?'M':'T'),
+        srcStyle:`position:absolute;right:-4px;bottom:-4px;width:17px;height:17px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:${sm.bg};box-shadow:0 0 0 2px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.45)`,
+        unreadDot: m.unread?'flex:none;width:7px;height:7px;border-radius:50%;background:#0a84ff;box-shadow:0 0 8px rgba(10,132,255,.8)':'display:none',
+        open:()=>this.setState(st=>({open:m.id,msgs:st.msgs.map(x=>x.id===m.id?{...x,unread:false}:x)})),
+        edge:`position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:${L.c};box-shadow:0 0 12px ${L.c}99`,
+        wrap:`flex:none;position:relative;border-radius:22px;overflow:hidden;background:var(--glass);backdrop-filter:blur(34px) saturate(200%);-webkit-backdrop-filter:blur(34px) saturate(200%);border:1px solid ${isNew?'rgba(10,132,255,.55)':'var(--stroke)'};box-shadow:inset 0 1px 0 var(--hi),var(--sh2)${isNew?',0 0 0 3px rgba(10,132,255,.18)':''};transition:border-color .8s,box-shadow .8s,transform .2s;${isNew?'animation:dropIn .5s cubic-bezier(.2,1.2,.3,1) both;':''}`
+      };
+    });
+    return {
+      tabFeed: s.tab==='feed', tabSummary: s.tab==='summary', tabConn: s.tab==='connections', tabSet: s.tab==='settings',
+      inSrcList: !s.feedSrc, inSrcMsgs: !!s.feedSrc,
+      goSrcList: ()=>this.setState({feedSrc:null,q:'',showFilters:false}),
+      iconBack: this.icon('back',17),
+      srcTitle: s.feedSrc ? srcMeta[s.feedSrc].t : 'Лента',
+      srcSub: s.feedSrc ? `${list.length} сообщений · ${list.filter(m=>m.unread).length} непрочитанных` : '',
+      srcCards: [
+        {k:'gmail',name:'Gmail',acct:'me@northline.io',letter:'M',bg:srcMeta.gmail.bg},
+        {k:'tg',name:'Telegram',acct:'@maxorlov',letter:'T',bg:srcMeta.tg.bg}
+      ].filter(x=>s.conns[x.k] && s.conns[x.k]!=='off').map(x=>{
+        const mine = s.msgs.filter(m=>m.src===x.k);
+        const un = mine.filter(m=>m.unread).length;
+        const top = mine.find(m=>m.level==='CRITICAL') || mine.find(m=>m.level==='HIGH');
+        const bars = ['CRITICAL','HIGH','NORMAL','LOW'].map(k=>({
+          key:k, style:`flex:${Math.max(mine.filter(m=>m.level===k).length,0.3)};background:${LV[k].c};box-shadow:0 0 8px ${LV[k].c}66;border-radius:999px`
+        }));
+        return {
+          key:x.k, name:x.name, acct:x.acct, letter:x.letter, bars,
+          count:`${mine.length} сообщений`,
+          unread: un? String(un):'',
+          unreadStyle: un?'flex:none;min-width:22px;height:22px;padding:0 7px;border-radius:999px;display:flex;align-items:center;justify-content:center;font:600 11.5px/1 system-ui,sans-serif;color:#fff;background:var(--info);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)':'display:none',
+          reauth: s.conns[x.k]==='reauth',
+          topLine: top ? `${top.from} — ${top.subj}` : 'Ничего срочного',
+          topDot: `flex:none;width:7px;height:7px;border-radius:50%;background:${top?LV[top.level].c:LV.LOW.c};box-shadow:0 0 8px ${top?LV[top.level].c:LV.LOW.c}aa`,
+          mark:`flex:none;width:44px;height:44px;border-radius:15px;display:flex;align-items:center;justify-content:center;font:700 17px/1 system-ui,sans-serif;color:#fff;background:${x.bg};box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 4px 16px rgba(0,0,0,.26)`,
+          go:()=>this.setState({feedSrc:x.k,q:''})
+        };
+      }),
+      padHead: phone?'8px 18px 12px':'26px 30px 14px',
+      padList: phone?'2px 16px 0':'2px 30px 0',
+      listTail: phone?'104px':'26px',
+      feedCount: s.feedSrc
+        ? `${list.length} сообщений · ${list.filter(m=>m.unread).length} непрочитанных`
+        : `${s.msgs.length} сообщений · ${unread} непрочитанных`,
+      q:s.q, onSearch:(e)=>this.set('q',e.target.value),
+      searchCount: q? `${list.length}` : '',
+      searchCountStyle: q? 'flex:none;padding:3px 9px;border-radius:999px;font:600 11.5px/1 system-ui,sans-serif;color:var(--ink2);background:var(--fill2)' : 'display:none',
+      iconSearch:this.icon('search',17), iconFilter:this.icon('filter',15), iconBolt:this.icon('bolt',12), iconReply:this.icon('reply',12),
+      showFilters:s.showFilters, toggleFilters:()=>this.set('showFilters',!s.showFilters),
+      filterBtnStyle:`position:relative;appearance:none;cursor:pointer;display:flex;align-items:center;gap:7px;padding:9px 14px;border-radius:999px;font:600 13px/1 system-ui,sans-serif;color:${s.showFilters?'var(--ink)':'var(--ink2)'};background:${s.showFilters?'var(--fill2)':'var(--glass)'};backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh2);transition:.22s`,
+      filterDotStyle: dirty?'position:absolute;top:6px;right:8px;width:7px;height:7px;border-radius:50%;background:#ff9f0a;box-shadow:0 0 8px rgba(255,159,10,.9)':'display:none',
+      filterGroups, resetFilters:()=>this.setState({f:{src:'all',level:'all',status:'all',reply:'all',action:'all',period:'all'},q:''}),
+      cards, feedEmpty: list.length===0,
+      iconChev:this.icon('chev',13), iconWarn:this.icon('warn',15), iconPlus:this.icon('plus',16),
+      iconReplyLg:this.icon('reply',18), iconBoltLg:this.icon('bolt',18),
+      sumRange: s.period==='24ч' ? 'За последние 24 часа' : (s.period==='Неделя' ? 'За последние 7 дней' : 'Произвольный диапазон'),
+      periodLens: this.lens(3, ['24ч','Неделя','Период'].indexOf(s.period), '999px'),
+      periods: ['24ч','Неделя','Период'].map(p=>({key:p,label:p,style:this.seg(s.period===p).replace('12.5px','12px'),go:()=>{ this.setState({period:p,sumLoading:true}); clearTimeout(this._st); this._st=setTimeout(()=>this.setState({sumLoading:false}),1500); }})),
+      sumLoading: !!s.sumLoading, sumReady: !s.sumLoading,
+      sumCols: phone?'1fr 1fr':'1fr 1fr',
+      sumTotal: String(s.msgs.length),
+      sumReply: String(s.msgs.filter(m=>m.reply).length),
+      sumAction: String(s.msgs.filter(m=>m.action).length),
+      sumBars: ['CRITICAL','HIGH','NORMAL','LOW'].map(k=>{
+        const n = s.msgs.filter(m=>m.level===k).length;
+        return {key:k,n:String(n),label:LV[k].l,
+          style:`flex:${Math.max(n,0.35)};background:${LV[k].c};box-shadow:0 0 10px ${LV[k].c}66;border-radius:999px`,
+          dot:`width:9px;height:9px;border-radius:50%;background:${LV[k].c};box-shadow:0 0 8px ${LV[k].c}aa`};
+      }),
+      highlights: s.msgs.filter(m=>m.level==='CRITICAL'||m.level==='HIGH').slice(0,4).map(m=>({
+        key:m.id, text:`${m.from} — ${m.subj}`,
+        dot:`flex:none;margin-top:6px;width:7px;height:7px;border-radius:50%;background:${LV[m.level].c};box-shadow:0 0 8px ${LV[m.level].c}aa`,
+        open:()=>this.setState({tab:'feed',open:m.id})
+      })),
+      connSub: reauth? 'Один источник требует внимания' : 'Все источники синхронизированы',
+      conns: [
+        {k:'gmail',name:'Gmail',letter:'M',bg:'linear-gradient(150deg,#ff7a68,#d93025)',st:s.conns.gmail,sync:'Синхронизировано 2 минуты назад',acct:'me@northline.io'},
+        {k:'tg',name:'Telegram',letter:'T',bg:'linear-gradient(150deg,#54c4f5,#0f88c8)',st:s.conns.tg,sync:'Последняя синхронизация — вчера, 21:14',acct:'@maxorlov'}
+      ].map(c=>{
+        const reauthed = c.st==='reauth', off = c.st==='off';
+        return {
+          key:c.k, name:c.name, letter:c.letter, warn:reauthed,
+          mark:`flex:none;width:38px;height:38px;border-radius:13px;display:flex;align-items:center;justify-content:center;font:700 15px/1 system-ui,sans-serif;color:#fff;background:${c.bg};box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 4px 14px rgba(0,0,0,.25)`,
+          status: off? 'Не подключён' : (reauthed? 'Требуется повторная авторизация' : `${c.acct} · ${c.sync}`),
+          statusStyle:`font:400 12.5px/1.3 system-ui,sans-serif;color:${reauthed?'var(--warn-ink)':'var(--ink2)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis`,
+          btnLabel: off? 'Подключить' : (reauthed? 'Переподключить' : 'Отключить'),
+          btn: off||reauthed
+            ? 'appearance:none;border:0;cursor:pointer;flex:none;padding:10px 16px;border-radius:999px;font:600 13px/1 system-ui,sans-serif;color:#fff;background:linear-gradient(150deg,#4aa3ff,#0a6fe0);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 6px 16px rgba(10,111,224,.35);transition:.2s'
+            : 'appearance:none;cursor:pointer;flex:none;padding:10px 16px;border-radius:999px;font:600 13px/1 system-ui,sans-serif;color:var(--ink2);background:var(--fill);border:1px solid var(--stroke2);transition:.2s',
+          act:()=>{ const nx = (off||reauthed)?'active':'off'; this.setState(st=>({conns:{...st.conns,[c.k]:nx}})); this.toast(nx==='active'?`${c.name} подключён`:`${c.name} отключён — история остаётся в ленте`); },
+          wrap:`border-radius:24px;background:var(--glass);backdrop-filter:blur(34px) saturate(200%);-webkit-backdrop-filter:blur(34px) saturate(200%);border:1px solid ${reauthed?'rgba(255,159,10,.4)':'var(--stroke)'};box-shadow:inset 0 1px 0 var(--hi),var(--sh2)`
+        };
+      }),
+      openAdd:()=>this.set('addOpen',true),
+      criteria:s.criteria,
+      saveCriteria:()=>this.toast('Критерии сохранены — переоценка запущена'),
+      setRows:[
+        {key:'conn',label:'Управление подключениями',hint:'Gmail, Telegram',weight:500,color:'var(--ink)',go:()=>this.set('tab','connections')},
+        {key:'acc',label:'Аккаунт',hint:'me@northline.io',weight:500,color:'var(--ink)',go:()=>this.toast('Открыт раздел аккаунта')},
+        {key:'pwd',label:'Смена пароля',hint:'Последнее изменение — 4 месяца назад',weight:500,color:'var(--ink)',go:()=>this.toast('Отправлена ссылка на смену пароля')},
+        {key:'out',label:'Выйти из аккаунта',hint:'Вы вернётесь на экран входа',weight:600,color:'#ff4a3d',go:()=>{ clearInterval(this._iv); this.setState({stage:'auth',auth:'login',open:null,addOpen:false}); }}
+      ],
+      hasOverlay: !!s.open || s.addOpen, hasDetail: !!s.open, addOpen: s.addOpen,
+      closeAll:()=>this.setState({open:null,addOpen:false}),
+      iconClose:this.icon('close',15), iconExt:this.icon('ext',14), iconClock:this.icon('clock',13), iconCheck:this.icon('check',14),
+      sheetStyle: (phone
+        ? 'position:absolute;left:6px;right:6px;bottom:6px;top:44px;border-radius:34px;'
+        : 'position:absolute;right:0;top:0;bottom:0;width:min(560px,58%);border-radius:26px 0 0 26px;')
+        + 'z-index:10;display:flex;flex-direction:column;background:var(--glass);backdrop-filter:blur(46px) saturate(210%);-webkit-backdrop-filter:blur(46px) saturate(210%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh);overflow:hidden;color:var(--ink);animation:'+(phone?'dropIn':'glassIn')+' .38s cubic-bezier(.2,1.1,.3,1) both',
+      addStyle: (phone
+        ? 'position:absolute;left:8px;right:8px;bottom:8px;border-radius:32px;'
+        : 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,86%);border-radius:28px;')
+        + 'z-index:10;display:flex;flex-direction:column;gap:6px;padding:16px;background:var(--glass);backdrop-filter:blur(46px) saturate(210%);-webkit-backdrop-filter:blur(46px) saturate(210%);border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),var(--sh);color:var(--ink);animation:'+(phone?'dropIn':'glassIn')+' .34s cubic-bezier(.2,1.2,.3,1) both',
+      services: [
+        {k:'gmail',n:'Gmail',h:'Авторизация через Google',l:'M',bg:'linear-gradient(150deg,#ff7a68,#d93025)',soon:false},
+        {k:'tg',n:'Telegram',h:'Нужно написать боту @inbox_bot',l:'T',bg:'linear-gradient(150deg,#54c4f5,#0f88c8)',soon:false},
+        {k:'gh',n:'GitHub',h:'Issues, PR, упоминания',l:'G',bg:'linear-gradient(150deg,#6e7681,#24292f)',soon:true},
+        {k:'sl',n:'Slack',h:'Треды и личные сообщения',l:'S',bg:'linear-gradient(150deg,#a86ee0,#611f69)',soon:true},
+        {k:'no',n:'Notion',h:'Комментарии и упоминания',l:'N',bg:'linear-gradient(150deg,#9aa0a6,#37352f)',soon:true}
+      ].map(x=>({
+        key:x.k, name:x.n, hint:x.h, letter:x.l, tag: x.soon?'Скоро':'',
+        mark:`flex:none;width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;font:700 14px/1 system-ui,sans-serif;color:#fff;background:${x.bg};box-shadow:inset 0 1px 0 rgba(255,255,255,.4)`,
+        tagStyle: x.soon?'flex:none;padding:4px 10px;border-radius:999px;font:600 11px/1 system-ui,sans-serif;color:var(--ink3);background:var(--fill);border:1px solid var(--stroke2)':'display:none',
+        style:`appearance:none;border:1px solid var(--stroke2);cursor:${x.soon?'default':'pointer'};opacity:${x.soon?.5:1};display:flex;align-items:center;gap:12px;padding:12px;border-radius:20px;background:var(--fill);transition:.2s`,
+        go: x.soon? (()=>{}) : (()=>{ this.setState(st=>({conns:{...st.conns,[x.k]:'active'},addOpen:false})); this.toast(`${x.n} подключён`); })
+      })),
+      hasToast: !!s.toast, toastText: s.toast||'', toastBottom: phone?'104px':'26px',
+      ...this.detailVals(s,phone),
+      ...this.shellVals(s,phone,nav,TW,idx)
+    };
+  }
+  detailVals(s,phone){
+    const m = s.msgs.find(x=>x.id===s.open);
+    if(!m) return {dSrcLabel:'',dOpenLabel:'',dMark:'display:none',dLetter:'',dFrom:'',dAddr:'',dTime:'',dSubj:'',dSum:'',dCat:'',dDeadline:'',dDeadlineStyle:'display:none',dAction:false,dReply:false,dText:'',levelOpts:[],savedStyle:'display:none',lvlLensStyle:'display:none'};
+    const sm = m.src==='gmail'?{n:'Gmail',bg:'linear-gradient(150deg,#ff7a68,#d93025)',l:'M'}:{n:'Telegram',bg:'linear-gradient(150deg,#54c4f5,#0f88c8)',l:'T'};
+    return {
+      dSrcLabel:sm.n, dOpenLabel:`Открыть в ${sm.n}`, dLetter:sm.l,
+      dMark:`flex:none;width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;font:700 14px/1 system-ui,sans-serif;color:#fff;background:${sm.bg};box-shadow:inset 0 1px 0 rgba(255,255,255,.45)`,
+      dFrom:m.from, dAddr:m.addr, dTime:m.time, dSubj:m.subj, dText:m.text,
+      dSum:m.sum||'Сообщение ещё анализируется.', dCat:m.cat||'—',
+      dDeadline:m.deadline||'', dDeadlineStyle: m.deadline?'display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font:500 12.5px/1 system-ui,sans-serif;color:var(--ink);background:var(--fill2);border:1px solid var(--stroke2)':'display:none',
+      dAction:!!m.action, dReply:!!m.reply,
+      savedStyle: s.lvlPick===m.id?'display:inline-flex;align-items:center;gap:5px;font:600 11.5px/1 system-ui,sans-serif;color:var(--ok-ink);animation:glassIn .3s both':'display:none',
+      lvlLensStyle:`position:absolute;top:4px;left:4px;bottom:4px;width:calc((100% - 8px) / 4);border-radius:13px;background:${LV[m.level].t};border:1px solid ${LV[m.level].c}66;box-shadow:inset 0 1px 0 var(--hi),0 4px 14px ${LV[m.level].c}33;backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:translateX(calc(${['CRITICAL','HIGH','NORMAL','LOW'].indexOf(m.level)} * 100%));transition:transform .48s cubic-bezier(.32,1.5,.4,1),background .35s,border-color .35s,box-shadow .35s`,
+      levelOpts:['CRITICAL','HIGH','NORMAL','LOW'].map(k=>{
+        const on = m.level===k, L=LV[k];
+        return {key:k,label:L.l,
+          style:`position:relative;z-index:1;appearance:none;border:0;background:transparent;cursor:pointer;flex:1;min-width:0;padding:10px 4px;border-radius:13px;font:${on?600:500} 12.5px/1 system-ui,sans-serif;color:${on?L.ct:'var(--ink2)'};transition:color .32s cubic-bezier(.4,1.1,.4,1)`,
+          go:()=>{ this.setState(st=>({msgs:st.msgs.map(x=>x.id===m.id?{...x,level:k}:x),lvlPick:m.id})); clearTimeout(this._lp); this._lp=setTimeout(()=>this.setState({lvlPick:null}),2000); }};
+      })
+    };
+  }
+  shellVals(s,phone,nav,TW,idx){
+    return {
+      nav,
+      isPhone: phone, isDesktop: !phone,
+      railLensStyle:`position:absolute;top:0;left:0;right:0;height:40px;border-radius:14px;background:linear-gradient(150deg,rgba(255,255,255,.26),rgba(255,255,255,.08));border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),0 4px 14px rgba(0,0,0,.16);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:translateY(${idx*46}px);transition:transform .48s cubic-bezier(.32,1.5,.4,1)`,
+      lensStyle:`position:absolute;top:7px;left:7px;width:${TW}px;height:calc(100% - 14px);border-radius:999px;background:linear-gradient(150deg,rgba(255,255,255,.30),rgba(255,255,255,.10));border:1px solid var(--stroke);box-shadow:inset 0 1px 0 var(--hi),inset 0 -1px 2px rgba(255,255,255,.18),0 4px 14px rgba(0,0,0,.22);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:translateX(${idx*TW}px);transition:transform .48s cubic-bezier(.32,1.5,.4,1)`,
+      setPhone:()=>this.set('dev','phone'), setDesktop:()=>this.set('dev','desktop'),
+      setDark:()=>this.set('th','dark'), setLight:()=>this.set('th','light'),
+      th: s.th,
+      segPhone:this.seg(phone), segDesktop:this.seg(!phone),
+      segDark:this.seg(s.th==='dark'), segLight:this.seg(s.th==='light'),
+      devLens:this.lens(2, phone?0:1, '999px'),
+      thLens:this.lens(2, s.th==='dark'?0:1, '999px'),
+      isAuth: s.stage==='auth', isApp: s.stage==='app',
+      isCriteria: s.auth==='criteria', isCreds: s.auth!=='criteria',
+      authTitle: s.auth==='criteria' ? 'Что для вас важно?' : (s.auth==='signup' ? 'Создайте аккаунт' : 'С возвращением'),
+      authSub: s.auth==='criteria'
+        ? 'Опишите своими словами, какие сообщения нельзя пропустить. Это можно изменить позже в настройках.'
+        : 'Одна лента вместо десяти вкладок. Почта и мессенджеры, отсортированные по тому, что действительно требует вас.',
+      authCta: s.auth==='signup' ? 'Создать аккаунт' : 'Войти',
+      authAlt: s.auth==='signup' ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться',
+      toggleAuth: ()=>this.set('auth', s.auth==='signup'?'login':'signup'),
+      submitAuth: ()=>this.set('auth','criteria'),
+      onCriteria: (e)=>this.set('criteria', e.target.value),
+      finishAuth: ()=>{ this.setState({stage:'app'}); this.startLive(); },
+      wallStyle: 'position:absolute;inset:0;pointer-events:none;transition:background .5s ease;background:' + (s.th==='light'
+        ? 'radial-gradient(58% 40% at 86% 2%,rgba(255,196,150,.92),transparent 62%),radial-gradient(52% 38% at 62% 26%,rgba(255,150,205,.8),transparent 66%),radial-gradient(66% 52% at 2% 94%,rgba(126,232,255,.92),transparent 68%),radial-gradient(50% 40% at 30% 60%,rgba(150,255,214,.55),transparent 70%),linear-gradient(158deg,#bcd4ff 0%,#7f9ff0 44%,#4553b8 100%)'
+        : 'radial-gradient(58% 40% at 82% 2%,rgba(32,120,196,.62),transparent 66%),radial-gradient(52% 42% at 6% 96%,rgba(168,26,118,.5),transparent 70%),radial-gradient(44% 30% at 46% 52%,rgba(16,64,110,.32),transparent 72%),linear-gradient(165deg,#0a0a0d 0%,#050507 52%,#000 100%)'),
+      frameStyle: phone
+        ? 'position:relative;width:390px;height:820px;max-height:calc(100vh - 110px);border-radius:54px;padding:0;background:linear-gradient(160deg,rgba(255,255,255,.10),rgba(255,255,255,.02));box-shadow:0 40px 90px rgba(0,0,0,.5),0 0 0 1.5px rgba(255,255,255,.16),inset 0 1px 0 rgba(255,255,255,.5);overflow:hidden;flex:none;transition:width .45s cubic-bezier(.4,1.1,.3,1),height .45s cubic-bezier(.4,1.1,.3,1),border-radius .45s'
+        : 'position:relative;width:min(1240px,96vw);height:min(780px,calc(100vh - 110px));border-radius:22px;background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.018));box-shadow:0 40px 90px rgba(0,0,0,.5),0 0 0 1.5px rgba(255,255,255,.14),inset 0 1px 0 rgba(255,255,255,.4);overflow:hidden;flex:none;transition:width .45s cubic-bezier(.4,1.1,.3,1),height .45s cubic-bezier(.4,1.1,.3,1),border-radius .45s'
+    };
+  }
+}
+</script>
+
+
+</body></html>
