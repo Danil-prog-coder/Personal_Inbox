@@ -30,6 +30,46 @@
 - `design-tokens.css` — CSS-переменные, извлечённые из прототипа один-в-один
 - `original/` — исходные спецификации заказчика, для истории
 
+## Запуск
+
+```bash
+make install        # виртуальное окружение и зависимости бэкенда
+cp .env.example .env  # ключи можно не заполнять: приложение поднимется и без них
+make migrate        # схема БД (Alembic)
+make seed           # 19 демо-сообщений из референса, вход demo@personal.inbox / demo12345
+make run            # http://localhost:8000, документация — /docs
+make test           # тесты бэкенда
+
+make front-install  # зависимости фронтенда
+make front          # http://localhost:5173, запросы к /api уходят на бэкенд
+make test-front     # тесты фронтенда
+```
+
+Без `OPENAI_API_KEY` сообщения всё равно попадают в ленту, но получают пометку
+«Оценка недоступна» после трёх попыток вызова модели. Без ключей Google
+подключение Gmail недоступно; Telegram работает по токену бота от @BotFather.
+
+`DEMO_LIVE=1 make run` доигрывает три «новых» сообщения из референса —
+на них видно появление карточек в реальном времени через SSE.
+
+## Структура
+
+```
+backend/
+  main.py          точка входа FastAPI, middleware, роутеры
+  models.py        таблицы, schemas.py — контракты API
+  api/             ручки: auth, me, connections, sources, messages, summary, stream
+  llm/provider.py  адаптер модели: промпт, строгая схема ответа
+  analysis.py      очередь оценки, три повтора, фоновая переоценка
+  sources/         Gmail (OAuth + History API) и Telegram (Bot API)
+  ingest.py        приём сообщения: дедупликация, событие, очередь
+  scheduler.py     синхронизация раз в 5 минут
+  seed_data.py     демо-данные из референса
+  tests/           pytest
+frontend/          React 18 + TypeScript + Vite
+```
+
 ## Статус
 
-ТЗ зафиксировано, открытых вопросов нет. Код ещё не написан.
+ТЗ зафиксировано, открытых вопросов нет. Бэкенд и фронтенд написаны
+и покрыты тестами: `make test` (pytest) и `make test-front` (vitest).
