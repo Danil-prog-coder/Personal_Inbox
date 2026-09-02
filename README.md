@@ -14,6 +14,7 @@
 | Документ | О чём |
 | --- | --- |
 | [`CLAUDE.md`](CLAUDE.md) | правила разработки, загружаются автоматически |
+| [`.claude/settings.json`](.claude/settings.json) | разрешения: read-only операции без промптов, подтверждение на необратимые |
 | [`docs/00-product-spec.md`](docs/00-product-spec.md) | ТЗ продукта: стек, источники, обработка моделью, границы MVP |
 | [`docs/01-design-system.md`](docs/01-design-system.md) | дизайн-система: токены, стекло, движение, типографика |
 | [`docs/02-screens.md`](docs/02-screens.md) | экраны, состояния и все тексты интерфейса |
