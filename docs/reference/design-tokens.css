@@ -1,0 +1,175 @@
+/* Personal Inbox — design tokens.
+ * Извлечено ОДИН-В-ОДИН из docs/reference/reference-source.html.
+ * Это единственный источник правды по цвету, стеклу и тени.
+ * Менять значения нельзя. Новые токены добавлять только с обновлением
+ * docs/01-design-system.md и отметкой «расширение, не в референсе».
+ */
+
+:root,
+[data-theme="dark"] {
+  /* Текст */
+  --ink:  #f2f4f7;
+  --ink2: rgba(255, 255, 255, .60);
+  --ink3: rgba(255, 255, 255, .34);
+
+  /* Стекло */
+  --glass:  linear-gradient(155deg, rgba(255,255,255,.055), rgba(255,255,255,.012));
+  --glass2: linear-gradient(155deg, rgba(255,255,255,.030), rgba(255,255,255,.008));
+  --stroke:  rgba(255, 255, 255, .14);
+  --stroke2: rgba(255, 255, 255, .06);
+  --hi:      rgba(255, 255, 255, .98);
+
+  /* Тени */
+  --sh:  0 28px 70px rgba(0,0,0,.62), 0 2px 8px rgba(0,0,0,.34);
+  --sh2: 0 12px 30px rgba(0,0,0,.40);
+
+  /* Заливка контролов */
+  --fill:  rgba(255, 255, 255, .035);
+  --fill2: rgba(255, 255, 255, .075);
+
+  /* Фон страницы */
+  --page:
+    radial-gradient(52% 40% at 78% 6%,  rgba(24,92,150,.50), transparent 66%),
+    radial-gradient(46% 38% at 12% 92%, rgba(120,20,86,.42), transparent 68%),
+    radial-gradient(120% 100% at 30% 20%, #0b0b0d 0%, #040405 55%, #000 100%);
+
+  --chrome: rgba(255, 255, 255, .05);
+
+  /* Текстовые оттенки уровней важности (для читаемости на стекле) */
+  --crit-ink: #ff6b5f;
+  --warn-ink: #ffb84a;
+  --info-ink: #4aa3ff;
+  --mute-ink: #aab3c0;
+  --ok-ink:   #30d158;
+}
+
+[data-theme="light"] {
+  --ink:  #0d1526;
+  --ink2: rgba(11, 18, 34, .68);
+  --ink3: rgba(11, 18, 34, .46);
+
+  --glass:  linear-gradient(155deg, rgba(255,255,255,.30), rgba(255,255,255,.09));
+  --glass2: linear-gradient(155deg, rgba(255,255,255,.17), rgba(255,255,255,.05));
+  --stroke:  rgba(255, 255, 255, .62);
+  --stroke2: rgba(255, 255, 255, .30);
+  --hi:      rgba(255, 255, 255, .98);
+
+  --sh:  0 28px 70px rgba(16,32,86,.30), 0 2px 6px rgba(16,32,86,.14);
+  --sh2: 0 12px 30px rgba(16,32,86,.18);
+
+  --fill:  rgba(255, 255, 255, .20);
+  --fill2: rgba(255, 255, 255, .38);
+
+  --page:
+    radial-gradient(58% 46% at 82% 8%, rgba(255,186,224,.90), transparent 62%),
+    radial-gradient(66% 58% at 8% 88%, rgba(126,226,255,.85), transparent 66%),
+    linear-gradient(158deg, #9dbcff 0%, #5a7fe0 48%, #31409c 100%);
+
+  --chrome: rgba(255, 255, 255, .26);
+
+  --crit-ink: #a82c22;
+  --warn-ink: #7d4900;
+  --info-ink: #0a52ad;
+  --mute-ink: #3f4a5a;
+  --ok-ink:   #12703a;
+}
+
+/* Чистые цвета уровней важности — ОДИНАКОВЫ в обеих темах.
+ * Используются для: боковой грани карточки, точек, полос распределения,
+ * свечения. Для ТЕКСТА уровня использовать --crit-ink/--warn-ink/... */
+:root {
+  --lvl-critical: #ff4a3d;
+  --lvl-high:     #ff9f0a;
+  --lvl-normal:   #0a84ff;
+  --lvl-low:      #98a2b3;
+
+  /* Фон чипа уровня */
+  --lvl-critical-bg: rgba(255, 74, 61, .16);
+  --lvl-high-bg:     rgba(255, 159, 10, .16);
+  --lvl-normal-bg:   rgba(10, 132, 255, .16);
+  --lvl-low-bg:      rgba(152, 162, 179, .14);
+
+  /* Акцент / первичная кнопка */
+  --accent-grad: linear-gradient(150deg, #4aa3ff, #0a6fe0);
+  --accent:      #0a84ff;
+
+  /* Бренд-заливки источников */
+  --src-gmail: linear-gradient(150deg, #ff7a68, #d93025);
+  --src-tg:    linear-gradient(150deg, #54c4f5, #0f88c8);
+}
+
+/* ── Готовые рецепты (копировать целиком, не изобретать) ───────────── */
+
+/* Стеклянная панель / карточка */
+.glass-panel {
+  background: var(--glass);
+  backdrop-filter: blur(34px) saturate(200%);
+  -webkit-backdrop-filter: blur(34px) saturate(200%);
+  border: 1px solid var(--stroke);
+  box-shadow: inset 0 1px 0 var(--hi), var(--sh2);
+  border-radius: 22px;
+}
+
+/* Лист / модальное окно */
+.glass-sheet {
+  background: var(--glass);
+  backdrop-filter: blur(46px) saturate(210%);
+  -webkit-backdrop-filter: blur(46px) saturate(210%);
+  border: 1px solid var(--stroke);
+  box-shadow: inset 0 1px 0 var(--hi), var(--sh);
+  border-radius: 30px;
+}
+
+/* Первичная кнопка-пилюля */
+.btn-primary {
+  border: 0;
+  border-radius: 999px;
+  padding: 15px 22px;
+  font: 600 15px/1 system-ui, sans-serif;
+  color: #fff;
+  background: var(--accent-grad);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 10px 26px rgba(10,111,224,.42);
+  transition: transform .18s cubic-bezier(.3,1.4,.4,1), box-shadow .18s;
+}
+.btn-primary:hover  { transform: translateY(-1.5px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 14px 32px rgba(10,111,224,.55); }
+.btn-primary:active { transform: translateY(1px) scale(.985); }
+
+/* Вторичная кнопка */
+.btn-secondary {
+  border-radius: 999px;
+  padding: 15px 20px;
+  font: 500 15px/1 system-ui, sans-serif;
+  color: var(--ink2);
+  background: var(--fill);
+  border: 1px solid var(--stroke2);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transition: .2s;
+}
+.btn-secondary:hover { color: var(--ink); background: var(--fill2); }
+
+/* Стеклянная линза сегментированного контрола.
+ * n — число сегментов, idx — индекс активного. Ширина считается,
+ * НЕ хардкодится: линза обязана совпадать с сегментом при любом n. */
+.lens {
+  position: absolute; top: 4px; bottom: 4px; left: 4px;
+  width: calc((100% - 8px) / var(--seg-count));
+  border-radius: 999px;
+  background: linear-gradient(150deg, rgba(255,255,255,.26), rgba(255,255,255,.08));
+  border: 1px solid var(--stroke);
+  box-shadow: inset 0 1px 0 var(--hi), 0 4px 14px rgba(0,0,0,.16);
+  backdrop-filter: blur(6px) saturate(200%);
+  -webkit-backdrop-filter: blur(6px) saturate(200%);
+  transform: translateX(calc(var(--seg-index) * 100%));
+  transition: transform .48s cubic-bezier(.32, 1.5, .4, 1);
+}
+
+/* Анимации из референса */
+@keyframes glassIn  { from { opacity:0; transform: translateY(14px) scale(.985) } to { opacity:1; transform:none } }
+@keyframes dropIn   { from { opacity:0; transform: translateY(-18px) scale(.97) } to { opacity:1; transform:none } }
+@keyframes shimmer  { 0% { background-position:-320px 0 } 100% { background-position:320px 0 } }
+@keyframes pulseRing{ 0% { box-shadow:0 0 0 0 rgba(10,132,255,.5) } 70% { box-shadow:0 0 0 14px rgba(10,132,255,0) } 100% { box-shadow:0 0 0 0 rgba(10,132,255,0) } }
+@keyframes tabIn    { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform:none } }
+@keyframes floaty   { 0%,100% { transform: translate3d(0,0,0) } 50% { transform: translate3d(0,-10px,0) } }
+@keyframes spin     { to { transform: rotate(360deg) } }
