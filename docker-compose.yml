@@ -1,0 +1,28 @@
+# Только для локальной проверки, что стек поднимается и работает целиком.
+# Продакшн-конфигурации, миграций и тестов отдельными сервисами здесь нет —
+# см. docs/00-product-spec.md, п.2 и docs/04-decisions.md.
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_PATH: /data/personal_inbox.db
+      APP_BASE_URL: http://localhost:8000
+      FRONTEND_ORIGIN: http://localhost:5173
+    volumes:
+      - backend-data:/data
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
+    depends_on:
+      - backend
+
+volumes:
+  backend-data:
