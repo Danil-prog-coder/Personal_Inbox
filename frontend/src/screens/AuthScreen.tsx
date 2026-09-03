@@ -83,7 +83,7 @@ export function AuthScreen({ onAuthenticated }: Props) {
 
         {error && <span className="auth__error">{error}</span>}
 
-        <button type="submit" className="btn-primary" disabled={busy}>
+        <button type="submit" className="btn-primary auth__submit" disabled={busy}>
           {register ? 'Создать аккаунт' : 'Войти'}
         </button>
         <button

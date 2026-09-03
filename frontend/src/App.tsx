@@ -217,8 +217,6 @@ export function App() {
         {!isDesktop && (
           <TabBar
             active={tab}
-            unread={unread}
-            reauth={reauth}
             onNavigate={(next) => {
               setTab(next);
               if (next !== 'feed') setOpenedSource(null);

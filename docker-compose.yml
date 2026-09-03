@@ -1,0 +1,45 @@
+# Весь стек одной командой: docker compose up --build
+# Внутри только то, что нужно приложению, — бэкенд и nginx.
+# Отдельных сервисов миграции и тестов нет: схема накатывается при старте
+# сервера, тесты гоняются вручную (make test, make test-front).
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      # Фронт и API отдаёт один и тот же origin — адрес nginx. Берём его из
+      # PUBLIC_URL, а не из APP_BASE_URL: тот в .env настроен на запуск
+      # без контейнеров и указывает прямо на бэкенд.
+      APP_BASE_URL: ${PUBLIC_URL:-http://localhost:8080}
+      FRONTEND_ORIGIN: ${PUBLIC_URL:-http://localhost:8080}
+      DATABASE_PATH: /data/personal_inbox.db
+      ADDR: ":8000"
+      SESSION_SECRET: ${SESSION_SECRET:-personal-inbox-dev-secret}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ENABLE_SCHEDULER: ${ENABLE_SCHEDULER:-1}
+      DEMO_LIVE: ${DEMO_LIVE:-0}
+    volumes:
+      - db:/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  nginx:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db:

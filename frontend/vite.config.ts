@@ -7,11 +7,11 @@ export default defineConfig({
     port: 5173,
     host: true,
     // Запросы к API уходят на бэкенд, поэтому сессионная cookie остаётся своей.
-    // В docker-compose бэкенд виден по имени сервиса, а не localhost — цель
-    // прокси переопределяется переменной окружения VITE_API_PROXY_TARGET.
+    // Это только для `make front`: в docker compose фронт собран в статику,
+    // а /api проксирует nginx (frontend/nginx.conf).
     proxy: {
       '/api': {
-        target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
+        target: 'http://localhost:8000',
         changeOrigin: false,
       },
     },

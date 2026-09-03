@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -27,11 +26,6 @@ import (
 )
 
 func main() {
-	// Схема накатывается при открытии базы; флаг нужен, чтобы сделать это
-	// без запуска сервера (make migrate).
-	migrateOnly := flag.Bool("migrate-only", false, "накатить миграции и выйти")
-	flag.Parse()
-
 	log.SetFlags(log.LstdFlags)
 	cfg := config.Load()
 
@@ -40,11 +34,6 @@ func main() {
 		log.Fatalf("база данных: %v", err)
 	}
 	defer db.Close()
-
-	if *migrateOnly {
-		log.Printf("схема готова: %s", cfg.DatabasePath)
-		return
-	}
 
 	bus := events.New(200)
 	worker := analysis.NewWorker(db, bus, llm.NewOpenAI(cfg))

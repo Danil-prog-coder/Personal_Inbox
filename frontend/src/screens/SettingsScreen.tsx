@@ -74,11 +74,9 @@ export function SettingsScreen({
 
   return (
     <div className="screen">
-      <div className="screen-head">
+      <div className="screen-flow">
+        <div className="screen-flow__column">
         <h1 className="screen-title">Настройки</h1>
-      </div>
-
-      <div className="screen-body screen-body--narrow">
         <div className="panel">
           <div className="head-titles">
             <span className="panel__title">Критерии важности</span>
@@ -218,6 +216,7 @@ export function SettingsScreen({
               <Icon name="chev" size={16} />
             </span>
           </button>
+        </div>
         </div>
       </div>
     </div>
