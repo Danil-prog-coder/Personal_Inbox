@@ -70,9 +70,25 @@
 ## Стек
 
 React 18 + TypeScript + Vite · обычный CSS на переменных · `react-router-dom`
-FastAPI + SQLAlchemy 2.x + SQLite + Alembic · APScheduler в том же процессе
-OpenAI через адаптер `backend/llm/provider.py` · Gmail API · Telegram Bot API
-`pytest` (бэк) · `vitest` (фронт)
+**Go 1.24 + `net/http`** · SQLite через `database/sql` и `modernc.org/sqlite`
+обычный SQL в `internal/store` · миграции — свои `.sql` через `embed`
+фоновые задачи — горутина с `time.Ticker` в том же процессе
+OpenAI через адаптер `backend/internal/llm/provider.go` · Gmail REST · Telegram Bot API
+`go test` (бэк) · `vitest` (фронт)
+
+Зависимостей у бэкенда две: драйвер SQLite и `bcrypt`. Веб-фреймворк, ORM, логгер
+и SDK провайдеров не подключаем — всё закрывается стандартной библиотекой.
+
+Структура бэкенда:
+```
+backend/
+  cmd/server      точка входа, cmd/seed — демо-данные
+  internal/api    маршруты и ручки, session.go — подписанная cookie
+  internal/store  модели, SQL, миграции, фильтры ленты
+  internal/llm    адаптер модели      internal/analysis  очередь оценки
+  internal/ingest приём сообщений     internal/sources   gmail, telegram
+  internal/view   схемы ответов       internal/events    шина событий для SSE
+```
 
 Простота важнее правильности «по-взрослому»: это pet-проект.
 

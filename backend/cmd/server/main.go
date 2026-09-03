@@ -1,0 +1,99 @@
+// Команда server — точка входа приложения: go run ./cmd/server
+package main
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"personalinbox/internal/analysis"
+	"personalinbox/internal/api"
+	"personalinbox/internal/config"
+	"personalinbox/internal/events"
+	"personalinbox/internal/ingest"
+	"personalinbox/internal/llm"
+	"personalinbox/internal/scheduler"
+	"personalinbox/internal/security"
+	"personalinbox/internal/seed"
+	"personalinbox/internal/sources/gmail"
+	"personalinbox/internal/sources/telegram"
+	"personalinbox/internal/store"
+)
+
+func main() {
+	// Схема накатывается при открытии базы; флаг нужен, чтобы сделать это
+	// без запуска сервера (make migrate).
+	migrateOnly := flag.Bool("migrate-only", false, "накатить миграции и выйти")
+	flag.Parse()
+
+	log.SetFlags(log.LstdFlags)
+	cfg := config.Load()
+
+	db, err := store.Open(cfg.DatabasePath)
+	if err != nil {
+		log.Fatalf("база данных: %v", err)
+	}
+	defer db.Close()
+
+	if *migrateOnly {
+		log.Printf("схема готова: %s", cfg.DatabasePath)
+		return
+	}
+
+	bus := events.New(200)
+	worker := analysis.NewWorker(db, bus, llm.NewOpenAI(cfg))
+	ingestor := ingest.New(db, bus, worker)
+	gmailClient := gmail.NewClient(cfg)
+	telegramClient := telegram.NewClient()
+
+	var sync *scheduler.Scheduler
+	if cfg.EnableScheduler {
+		worker.Start()
+		sync = scheduler.New(ingestor, gmailClient, telegramClient)
+		sync.Start()
+	}
+	if cfg.DemoLive {
+		// Доигрывает три «новых» сообщения из референса: на них видно
+		// появление карточек в реальном времени через SSE.
+		go func() {
+			hash, err := security.HashPassword(seed.DemoPassword)
+			if err != nil {
+				log.Printf("демо-очередь: %v", err)
+				return
+			}
+			seed.PlayLiveQueue(db, bus, hash, 6*time.Second, 16*time.Second, 2600*time.Millisecond)
+		}()
+	}
+
+	server := &http.Server{
+		Addr:    cfg.Addr,
+		Handler: api.New(cfg, db, bus, ingestor, worker, gmailClient, telegramClient).Handler(),
+		// Поток SSE живёт долго, поэтому таймаута на запись нет намеренно.
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		log.Printf("Personal Inbox слушает %s", cfg.Addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("сервер: %v", err)
+		}
+	}()
+
+	<-stop
+	log.Print("останавливаемся")
+	if sync != nil {
+		sync.Stop()
+	}
+	worker.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = server.Shutdown(ctx)
+}
