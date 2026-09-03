@@ -1,4 +1,4 @@
-.PHONY: migrate run seed test lint build front front-install test-front
+.PHONY: migrate run seed test lint build front front-install test-front graph
 
 GO ?= go
 BACKEND ?= backend
@@ -31,3 +31,8 @@ front:
 
 test-front:
 	cd frontend && npm test
+
+# Граф проекта: обычно обновляется git-хуками, цель нужна для ручной пересборки
+# после большого рефакторинга (только AST, без вызовов модели).
+graph:
+	graphify update .

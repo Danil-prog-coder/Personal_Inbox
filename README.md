@@ -58,6 +58,36 @@ make test-front     # тесты фронтенда
 `DEMO_LIVE=1 make run` доигрывает три «новых» сообщения из референса —
 на них видно появление карточек в реальном времени через SSE.
 
+## Граф проекта
+
+`graphify-out/` — граф всего проекта: узлы, связи, сообщества. Собирается
+локальным AST-разбором, без ключей и без обращений к модели.
+
+```bash
+graphify query "как сообщение попадает в ленту"   # связи по вопросу
+graphify path "Worker" "OpenAI"                    # путь между сущностями
+graphify explain "Ingestor"                        # окружение одного узла
+graphify affected "store.Message"                  # что сломается при правке
+make graph                                         # ручная пересборка
+```
+
+Обновляется сам: git-хуки `post-commit`, `post-merge` и `post-checkout`
+пересобирают граф в фоне, `git gpull` (`git pull && graphify update .`) —
+после подтягивания чужих изменений. В репозитории версионируются `graph.json`
+и `GRAPH_REPORT.md`; для `graph.json` зарегистрирован merge-драйвер, поэтому
+конфликты в нём разрешаются объединением, а не руками.
+
+Установка на новой машине:
+
+```bash
+pip install "graphifyy[sql]"      # или uv tool install / pipx install
+graphify install --project --strict
+graphify hook install
+```
+
+Строгий режим означает, что ассистент обязан сходить в граф прежде, чем читать
+исходники вслепую (см. раздел «graphify» в `CLAUDE.md`).
+
 ## Структура
 
 ```
