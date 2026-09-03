@@ -19,6 +19,7 @@ type Bus struct {
 	events []Event
 	maxLen int
 	seq    int64
+	hook   func(userID int64)
 }
 
 // New создаёт шину на maxLen последних событий.
@@ -29,16 +30,32 @@ func New(maxLen int) *Bus {
 	return &Bus{maxLen: maxLen}
 }
 
+// OnPublish задаёт обработчик, который вызывается на каждое событие. Через
+// шину проходит любое изменение ленты — приём сообщения, оценка модели, ручное
+// исправление уровня, — поэтому сброс кэша удобно повесить одной точкой сюда,
+// а не разыскивать все места записи.
+func (b *Bus) OnPublish(hook func(userID int64)) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.hook = hook
+}
+
 // Publish кладёт событие в буфер и возвращает его номер.
 func (b *Bus) Publish(userID int64, name string, data any) Event {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	b.seq++
 	event := Event{Seq: b.seq, UserID: userID, Name: name, Data: data}
 	b.events = append(b.events, event)
 	if len(b.events) > b.maxLen {
 		b.events = append([]Event(nil), b.events[len(b.events)-b.maxLen:]...)
+	}
+	hook := b.hook
+	b.mu.Unlock()
+
+	// Хук ходит в Redis, поэтому вызывается уже без блокировки: иначе медленный
+	// Redis останавливал бы всю шину.
+	if hook != nil {
+		hook(userID)
 	}
 	return event
 }

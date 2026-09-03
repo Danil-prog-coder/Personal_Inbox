@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Avatar } from './Avatar';
 import { Icon } from './Icon';
 import { Portal } from './Portal';
 import { Segmented } from './Segmented';
 import { formatTime, visibleCategory } from '../lib/format';
-import { LEVEL_LABEL, LEVEL_ORDER, SOURCE_LABEL } from '../lib/levels';
+import {
+  LEVEL_BG,
+  LEVEL_COLOR,
+  LEVEL_INK,
+  LEVEL_LABEL,
+  LEVEL_ORDER,
+  SOURCE_GRADIENT,
+  SOURCE_LABEL,
+  SOURCE_LETTER,
+} from '../lib/levels';
 import type { Level, Message } from '../lib/types';
 
 interface Props {
@@ -14,6 +22,16 @@ interface Props {
 }
 
 const LEVEL_OPTIONS = LEVEL_ORDER.map((level) => ({ value: level, label: LEVEL_LABEL[level] }));
+
+/** Линза переключателя уровня красится в цвет уровня — так в референсе. */
+function levelTone(level: Level) {
+  return {
+    ink: LEVEL_INK[level],
+    tint: LEVEL_BG[level],
+    edge: `color-mix(in srgb, ${LEVEL_COLOR[level]} 40%, transparent)`,
+    glow: `color-mix(in srgb, ${LEVEL_COLOR[level]} 20%, transparent)`,
+  };
+}
 
 /**
  * Телефон — лист снизу, десктоп — панель справа (разводится в CSS).
@@ -67,7 +85,13 @@ export function MessageDetails({ message, onClose, onLevelChange }: Props) {
 
         <div className="sheet__body">
           <div className="sheet__sender">
-            <Avatar name={message.sender_name} source={message.source} />
+            <span
+              className="sheet__mark"
+              style={{ background: SOURCE_GRADIENT[message.source] }}
+              aria-hidden="true"
+            >
+              {SOURCE_LETTER[message.source]}
+            </span>
             <div className="head-titles">
               <span className="msg-card__from ellipsis">{message.sender_name}</span>
               <span className="msg-card__addr ellipsis">
@@ -129,6 +153,7 @@ export function MessageDetails({ message, onClose, onLevelChange }: Props) {
               onChange={changeLevel}
               variant="inset"
               ariaLabel="Уровень важности"
+              tone={levelTone(message.level)}
             />
             <span className="level-picker__hint">
               Исправление уходит в модель как обратная связь и влияет на оценку похожих сообщений.

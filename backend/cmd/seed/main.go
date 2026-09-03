@@ -7,19 +7,19 @@ import (
 	"log"
 	"time"
 
-	"personalinbox/internal/config"
+	"personalinbox/internal/core"
 	"personalinbox/internal/events"
-	"personalinbox/internal/security"
-	"personalinbox/internal/seed"
-	"personalinbox/internal/store"
+	"personalinbox/internal/postgres"
+	"personalinbox/internal/services/seed"
+	"personalinbox/internal/utils/security"
 )
 
 func main() {
 	live := flag.Bool("live", false, "доиграть очередь новых сообщений")
 	flag.Parse()
 
-	cfg := config.Load()
-	db, err := store.Open(cfg.DatabasePath)
+	cfg := core.Load()
+	db, err := postgres.Open(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("база данных: %v", err)
 	}

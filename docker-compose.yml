@@ -1,0 +1,86 @@
+# Весь стек одной командой: docker compose up --build
+# Четыре сервиса: база, кэш, бэкенд и nginx.
+# Отдельных сервисов миграции и тестов нет: схема накатывается при старте
+# сервера, тесты гоняются вручную (make test, make test-front).
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-personalinbox}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-personalinbox}
+      POSTGRES_DB: ${POSTGRES_DB:-personalinbox}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      # Бэкенд стартует только после того, как база готова принимать запросы,
+      # иначе первый же Ping падает и контейнер уходит в перезапуск.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-personalinbox} -d ${POSTGRES_DB:-personalinbox}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # appendonly: сессии переживают перезапуск контейнера — иначе каждый
+    # docker compose restart разлогинивал бы всех.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 3s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      # Фронт и API отдаёт один и тот же origin — адрес nginx. Берём его из
+      # PUBLIC_URL, а не из APP_BASE_URL: тот в .env настроен на запуск
+      # без контейнеров и указывает прямо на бэкенд.
+      APP_BASE_URL: ${PUBLIC_URL:-http://localhost:8080}
+      FRONTEND_ORIGIN: ${PUBLIC_URL:-http://localhost:8080}
+      DATABASE_URL: postgres://${POSTGRES_USER:-personalinbox}:${POSTGRES_PASSWORD:-personalinbox}@postgres:5432/${POSTGRES_DB:-personalinbox}?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      ADDR: ":8000"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ENABLE_SCHEDULER: ${ENABLE_SCHEDULER:-1}
+      DEMO_LIVE: ${DEMO_LIVE:-0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  nginx:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:

@@ -72,8 +72,9 @@ export function Rail({ active, unread, reauth, email, onNavigate }: Props) {
   );
 }
 
-/** Нижний таб-бар — телефон. */
-export function TabBar({ active, unread, reauth, onNavigate }: Omit<Props, 'email'>) {
+/** Нижний таб-бар — телефон. Счётчиков здесь нет: в референсе бейджи
+ * показывает только боковая панель десктопа. */
+export function TabBar({ active, onNavigate }: Omit<Props, 'email' | 'unread' | 'reauth'>) {
   const index = TABS.findIndex((tab) => tab.key === active);
   return (
     <div className="tabbar">
@@ -85,32 +86,20 @@ export function TabBar({ active, unread, reauth, onNavigate }: Omit<Props, 'emai
         }
       >
         <div className="lens" aria-hidden="true" />
-        {TABS.map((tab) => {
-          const badge = badgeFor(tab.key, unread, reauth);
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              className={`tabbar__button${tab.key === active ? ' tabbar__button--on' : ''}`}
-              aria-current={tab.key === active ? 'page' : undefined}
-              onClick={() => onNavigate(tab.key)}
-            >
-              <span style={{ display: 'flex' }}>
-                <Icon name={tab.icon} size={21} />
-              </span>
-              <span className="tabbar__label">{tab.label}</span>
-              {badge > 0 && (
-                <span
-                  className={`badge tabbar__badge${
-                    tab.key === 'connections' ? ' badge--warn' : ''
-                  }`}
-                >
-                  {badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`tabbar__button${tab.key === active ? ' tabbar__button--on' : ''}`}
+            aria-current={tab.key === active ? 'page' : undefined}
+            onClick={() => onNavigate(tab.key)}
+          >
+            <span style={{ display: 'flex' }}>
+              <Icon name={tab.icon} size={21} />
+            </span>
+            <span className="tabbar__label">{tab.label}</span>
+          </button>
+        ))}
       </nav>
     </div>
   );
