@@ -27,7 +27,7 @@ func (e *env) telegramStub(ok bool) {
 
 func TestListShowsBothSourcesEvenWithoutConnections(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, raw := e.do(http.MethodGet, "/api/connections", nil)
 	if status != http.StatusOK {
 		t.Fatalf("список источников вернул %d", status)
@@ -46,7 +46,7 @@ func TestListShowsBothSourcesEvenWithoutConnections(t *testing.T) {
 
 func TestListShowsStateAndAccount(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	e.connection(user, "gmail", "active")
 
 	_, raw := e.do(http.MethodGet, "/api/connections", nil)
@@ -67,7 +67,7 @@ func TestListShowsStateAndAccount(t *testing.T) {
 
 func TestConnectTelegramVerifiesToken(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	e.telegramStub(true)
 
 	status, raw := e.do(http.MethodPost, "/api/connections/telegram",
@@ -96,7 +96,7 @@ func TestConnectTelegramVerifiesToken(t *testing.T) {
 
 func TestConnectTelegramWithBadToken(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	e.telegramStub(false)
 
 	status, raw := e.do(http.MethodPost, "/api/connections/telegram",
@@ -111,7 +111,7 @@ func TestConnectTelegramWithBadToken(t *testing.T) {
 
 func TestConnectTelegramRejectsShortToken(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, _ := e.do(http.MethodPost, "/api/connections/telegram",
 		map[string]string{"bot_token": "123"})
 	if status != http.StatusUnprocessableEntity {
@@ -121,7 +121,7 @@ func TestConnectTelegramRejectsShortToken(t *testing.T) {
 
 func TestReconnectUpdatesExistingRow(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	e.connection(user, "telegram", "reauth")
 	e.telegramStub(true)
 
@@ -143,7 +143,7 @@ func TestReconnectUpdatesExistingRow(t *testing.T) {
 
 func TestDisconnectClearsCredentialsButKeepsMessages(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, nil)
 
@@ -168,7 +168,7 @@ func TestDisconnectClearsCredentialsButKeepsMessages(t *testing.T) {
 
 func TestDisconnectUnknownSource(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, _ := e.do(http.MethodDelete, "/api/connections/slack", nil)
 	if status != http.StatusNotFound {
 		t.Fatalf("неизвестный источник вернул %d", status)
@@ -177,7 +177,7 @@ func TestDisconnectUnknownSource(t *testing.T) {
 
 func TestDisconnectMissingConnection(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, _ := e.do(http.MethodDelete, "/api/connections/gmail", nil)
 	if status != http.StatusNotFound {
 		t.Fatalf("неподключённый источник вернул %d", status)
@@ -186,7 +186,7 @@ func TestDisconnectMissingConnection(t *testing.T) {
 
 func TestGmailStartWithoutGoogleCredentials(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, raw := e.do(http.MethodPost, "/api/connections/gmail/start", nil)
 	if status != http.StatusServiceUnavailable {
 		t.Fatalf("без ключей Google ожидался 503, получен %d", status)
@@ -198,7 +198,7 @@ func TestGmailStartWithoutGoogleCredentials(t *testing.T) {
 
 func TestGmailStartReturnsAuthURL(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	e.gmail.ClientID = "id"
 	e.gmail.ClientSecret = "secret"
 	e.gmail.RedirectURI = "http://localhost:8000/api/connections/gmail/callback"
@@ -218,7 +218,7 @@ func TestGmailStartReturnsAuthURL(t *testing.T) {
 
 func TestGmailCallbackRejectsForeignState(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, raw := e.do(http.MethodGet, "/api/connections/gmail/callback?code=код&state=чужое", nil)
 	if status != http.StatusBadRequest {
 		t.Fatalf("чужой state вернул %d", status)
@@ -228,19 +228,18 @@ func TestGmailCallbackRejectsForeignState(t *testing.T) {
 	}
 }
 
-func TestConnectionsRequireAuth(t *testing.T) {
+// Входа нет: список источников отдаётся сразу, на чистой базе тоже
+// (решение №50). Здесь только GET: остальные ручки заводят подключения
+// и проверяются своими тестами.
+func TestConnectionsOpenWithoutLogin(t *testing.T) {
 	e := newEnv(t)
-	for _, request := range []struct {
-		method string
-		path   string
-	}{
-		{http.MethodGet, "/api/connections"},
-		{http.MethodPost, "/api/connections/gmail/start"},
-		{http.MethodDelete, "/api/connections/gmail"},
-	} {
-		status, _ := e.do(request.method, request.path, nil)
-		if status != http.StatusUnauthorized {
-			t.Fatalf("%s %s без входа вернул %d", request.method, request.path, status)
-		}
+	status, raw := e.do(http.MethodGet, "/api/connections", nil)
+	if status != http.StatusOK {
+		t.Fatalf("список источников вернул %d", status)
+	}
+	var connections []schemas.Connection
+	e.decode(raw, &connections)
+	if len(connections) != 2 {
+		t.Fatalf("источников в ответе: %d", len(connections))
 	}
 }

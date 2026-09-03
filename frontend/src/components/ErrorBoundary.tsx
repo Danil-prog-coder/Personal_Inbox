@@ -1,6 +1,6 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
-import { Icon } from './Icon';
+import { Notice } from './Notice';
 
 interface Props {
   children: ReactNode;
@@ -31,29 +31,12 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.failed) return this.props.children;
 
     return (
-      <>
-        <div className="page-bg" />
-        <div className="app">
-          <div className="crash" role="alert">
-            <div className="crash__card glass-panel">
-              <span className="crash__mark">
-                <Icon name="warn" size={20} />
-              </span>
-              <h1 className="crash__title">Что-то пошло не так</h1>
-              <p className="crash__text">
-                Интерфейс не смог отрисовать этот экран. Данные не потеряны — обновите страницу.
-              </p>
-              <button
-                type="button"
-                className="btn-primary crash__button"
-                onClick={() => window.location.reload()}
-              >
-                Обновить страницу
-              </button>
-            </div>
-          </div>
-        </div>
-      </>
+      <Notice
+        title="Что-то пошло не так"
+        text="Интерфейс не смог отрисовать этот экран. Данные не потеряны — обновите страницу."
+        actionLabel="Обновить страницу"
+        onAction={() => window.location.reload()}
+      />
     );
   }
 }

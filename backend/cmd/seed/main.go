@@ -11,7 +11,6 @@ import (
 	"personalinbox/internal/events"
 	"personalinbox/internal/postgres"
 	"personalinbox/internal/services/seed"
-	"personalinbox/internal/utils/security"
 )
 
 func main() {
@@ -25,19 +24,14 @@ func main() {
 	}
 	defer db.Close()
 
-	hash, err := security.HashPassword(seed.DemoPassword)
-	if err != nil {
-		log.Fatalf("пароль демо-пользователя: %v", err)
-	}
-	created, err := seed.Seed(db, hash, time.Time{})
+	created, err := seed.Seed(db, time.Time{})
 	if err != nil {
 		log.Fatalf("демо-данные: %v", err)
 	}
 	fmt.Printf("Демо-лента: добавлено сообщений — %d\n", created)
-	fmt.Printf("Вход: %s / %s\n", seed.DemoEmail, seed.DemoPassword)
 
 	if *live {
 		fmt.Println("Очередь живой демонстрации: 3 сообщения")
-		seed.PlayLiveQueue(db, events.New(200), hash, time.Second, 3*time.Second, 2600*time.Millisecond)
+		seed.PlayLiveQueue(db, events.New(200), time.Second, 3*time.Second, 2600*time.Millisecond)
 	}
 }

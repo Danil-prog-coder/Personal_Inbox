@@ -32,9 +32,9 @@ func newDB(t *testing.T) *DB {
 	return db
 }
 
-func mustUser(t *testing.T, db *DB, email string) *User {
+func mustUser(t *testing.T, db *DB) *User {
 	t.Helper()
-	user, err := db.CreateUser(email, "хеш", "Важны договоры.")
+	user, err := db.CreateUser("Важны договоры.")
 	if err != nil {
 		t.Fatalf("создать пользователя: %v", err)
 	}
@@ -85,31 +85,68 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 	if err := db.Migrate(); err != nil {
 		t.Fatalf("повторная миграция: %v", err)
 	}
+	// Сверяемся с числом файлов, а не с константой: иначе тест придётся
+	// править при каждой новой миграции.
+	entries, err := migrationFiles.ReadDir("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var count int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 1 {
-		t.Fatalf("ожидалась одна применённая миграция, получено %d", count)
+	if count != len(entries) {
+		t.Fatalf("применено %d миграций из %d файлов", count, len(entries))
 	}
 }
 
-func TestUserLookupIgnoresCase(t *testing.T) {
+// Входа нет, пользователь один: на чистой базе он заводится сам, а дальше
+// возвращается та же строка, а не новая (решение №50).
+func TestLocalUserIsCreatedOnceAndReused(t *testing.T) {
 	db := newDB(t)
-	mustUser(t, db, "Max@Northline.io")
 
-	user, err := db.UserByEmail("MAX@northline.IO")
+	first, err := db.LocalUser()
 	if err != nil {
-		t.Fatalf("пользователь не найден: %v", err)
+		t.Fatalf("первый вызов: %v", err)
 	}
-	if user.Email != "max@northline.io" {
-		t.Fatalf("email хранится не в нижнем регистре: %q", user.Email)
+	second, err := db.LocalUser()
+	if err != nil {
+		t.Fatalf("второй вызов: %v", err)
+	}
+	if first.ID != second.ID {
+		t.Fatalf("завелись двое: %d и %d", first.ID, second.ID)
+	}
+
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("строк в users: %d", count)
+	}
+}
+
+// Если от прежней версии со входом осталось несколько строк, берётся всегда
+// самая ранняя: к ней привязаны накопленные сообщения.
+func TestLocalUserTakesTheEarliestRow(t *testing.T) {
+	db := newDB(t)
+	first := mustUser(t, db)
+	if _, err := db.CreateUser("второй"); err != nil {
+		t.Fatal(err)
+	}
+
+	local, err := db.LocalUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if local.ID != first.ID {
+		t.Fatalf("выбран не первый: %d вместо %d", local.ID, first.ID)
 	}
 }
 
 func TestTimeSurvivesRoundTrip(t *testing.T) {
 	db := newDB(t)
-	user := mustUser(t, db, "max@northline.io")
+	user := mustUser(t, db)
 	connection := mustConnection(t, db, user, "gmail")
 	moment := time.Date(2026, 9, 2, 9, 41, 12, 456000000, time.UTC)
 	created := mustMessage(t, db, connection, func(m *Message) { m.ReceivedAt = moment })
@@ -206,7 +243,7 @@ func TestSummaryWindows(t *testing.T) {
 
 func TestSearchIsCaseInsensitiveForCyrillic(t *testing.T) {
 	db := newDB(t)
-	user := mustUser(t, db, "max@northline.io")
+	user := mustUser(t, db)
 	connection := mustConnection(t, db, user, "gmail")
 	mustMessage(t, db, connection, func(m *Message) { m.Subject = "Договор Northline" })
 	mustMessage(t, db, connection, func(m *Message) { m.Subject = "Счёт за август" })
@@ -222,7 +259,7 @@ func TestSearchIsCaseInsensitiveForCyrillic(t *testing.T) {
 
 func TestSearchTreatsWildcardsAsText(t *testing.T) {
 	db := newDB(t)
-	user := mustUser(t, db, "max@northline.io")
+	user := mustUser(t, db)
 	connection := mustConnection(t, db, user, "gmail")
 	mustMessage(t, db, connection, func(m *Message) { m.Subject = "Скидка 50% на всё" })
 	mustMessage(t, db, connection, func(m *Message) { m.Subject = "Обычное письмо" })
@@ -246,7 +283,7 @@ func TestSearchTreatsWildcardsAsText(t *testing.T) {
 
 func TestFilterByEffectiveLevelUsesOverride(t *testing.T) {
 	db := newDB(t)
-	user := mustUser(t, db, "max@northline.io")
+	user := mustUser(t, db)
 	connection := mustConnection(t, db, user, "gmail")
 	mustMessage(t, db, connection, func(m *Message) {
 		m.Level = "LOW"
@@ -273,7 +310,7 @@ func TestFilterByEffectiveLevelUsesOverride(t *testing.T) {
 
 func TestFilterByPeriodUsesReceivedAt(t *testing.T) {
 	db := newDB(t)
-	user := mustUser(t, db, "max@northline.io")
+	user := mustUser(t, db)
 	connection := mustConnection(t, db, user, "gmail")
 	now := UTCNow()
 	mustMessage(t, db, connection, func(m *Message) { m.ReceivedAt = now.Add(-2 * time.Hour) })
@@ -300,7 +337,7 @@ func TestDistributionIncludesZeros(t *testing.T) {
 
 func TestRecentOverridesNewestFirstAndLimited(t *testing.T) {
 	db := newDB(t)
-	user := mustUser(t, db, "max@northline.io")
+	user := mustUser(t, db)
 	connection := mustConnection(t, db, user, "gmail")
 	for index := 0; index < 3; index++ {
 		message := mustMessage(t, db, connection, func(m *Message) {
@@ -324,8 +361,8 @@ func TestRecentOverridesNewestFirstAndLimited(t *testing.T) {
 
 func TestMarkAllProcessingTouchesOnlyOwnMessages(t *testing.T) {
 	db := newDB(t)
-	owner := mustUser(t, db, "max@northline.io")
-	stranger := mustUser(t, db, "other@northline.io")
+	owner := mustUser(t, db)
+	stranger := mustUser(t, db)
 	own := mustConnection(t, db, owner, "gmail")
 	foreign := mustConnection(t, db, stranger, "gmail")
 	mustMessage(t, db, own, nil)
@@ -349,7 +386,7 @@ func TestMarkAllProcessingTouchesOnlyOwnMessages(t *testing.T) {
 
 func TestDisconnectKeepsMessages(t *testing.T) {
 	db := newDB(t)
-	user := mustUser(t, db, "max@northline.io")
+	user := mustUser(t, db)
 	connection := mustConnection(t, db, user, "gmail")
 	mustMessage(t, db, connection, nil)
 

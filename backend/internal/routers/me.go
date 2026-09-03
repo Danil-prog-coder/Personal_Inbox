@@ -6,15 +6,12 @@ import (
 	"personalinbox/internal/postgres"
 	"personalinbox/internal/schemas"
 	"personalinbox/internal/services/analysis"
-	"personalinbox/internal/utils/security"
 )
 
 type meUpdate struct {
-	Criteria        *string `json:"criteria"`
-	Theme           *string `json:"theme"`
-	Density         *string `json:"density"`
-	CurrentPassword *string `json:"current_password"`
-	NewPassword     *string `json:"new_password"`
+	Criteria *string `json:"criteria"`
+	Theme    *string `json:"theme"`
+	Density  *string `json:"density"`
 }
 
 func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
@@ -42,24 +39,6 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 	if payload.Density != nil && !postgres.Contains(postgres.Densities, *payload.Density) {
 		fail(w, http.StatusUnprocessableEntity, "Неизвестная плотность")
 		return
-	}
-	if payload.NewPassword != nil && len(*payload.NewPassword) < PasswordMinLength {
-		fail(w, http.StatusUnprocessableEntity, "Пароль короче 8 символов")
-		return
-	}
-
-	if payload.NewPassword != nil {
-		if payload.CurrentPassword == nil ||
-			!security.VerifyPassword(*payload.CurrentPassword, user.PasswordHash) {
-			fail(w, http.StatusBadRequest, "Текущий пароль неверен")
-			return
-		}
-		hash, err := security.HashPassword(*payload.NewPassword)
-		if err != nil {
-			fail(w, http.StatusInternalServerError, "Не удалось сменить пароль")
-			return
-		}
-		user.PasswordHash = hash
 	}
 	if payload.Theme != nil {
 		user.Theme = *payload.Theme

@@ -22,7 +22,7 @@ func (e *env) summary(period string) schemas.Summary {
 
 func TestSummaryWindow(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) { m.ReceivedAt = postgres.UTCNow().Add(-time.Hour) })
 	e.message(connection, func(m *messageModel) {
@@ -39,7 +39,7 @@ func TestSummaryWindow(t *testing.T) {
 
 func TestSummaryCountsReplyAndAction(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) {
 		m.NeedsReply = true
@@ -55,7 +55,7 @@ func TestSummaryCountsReplyAndAction(t *testing.T) {
 
 func TestSummaryCoversAllSources(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	e.message(e.connection(user, "gmail", "active"), nil)
 	e.message(e.connection(user, "telegram", "active"), nil)
 
@@ -66,7 +66,7 @@ func TestSummaryCoversAllSources(t *testing.T) {
 
 func TestTopListsCriticalFirstAndLimitsToFour(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	for range 3 {
 		e.message(connection, func(m *messageModel) { m.Level = "HIGH" })
@@ -89,7 +89,7 @@ func TestTopListsCriticalFirstAndLimitsToFour(t *testing.T) {
 
 func TestSummaryRejectsUnknownPeriod(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, _ := e.do(http.MethodGet, "/api/summary?period=квартал", nil)
 	if status != http.StatusUnprocessableEntity {
 		t.Fatalf("неизвестный период вернул %d", status)
@@ -98,7 +98,7 @@ func TestSummaryRejectsUnknownPeriod(t *testing.T) {
 
 func TestSummaryDefaultsTo24h(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, raw := e.do(http.MethodGet, "/api/summary", nil)
 	if status != http.StatusOK {
 		t.Fatalf("сводка без параметра вернула %d", status)
@@ -110,9 +110,10 @@ func TestSummaryDefaultsTo24h(t *testing.T) {
 	}
 }
 
-func TestSummaryRequiresAuth(t *testing.T) {
+// Входа нет: сводка открывается сразу (решение №50).
+func TestSummaryOpensWithoutLogin(t *testing.T) {
 	e := newEnv(t)
-	if status, _ := e.do(http.MethodGet, "/api/summary", nil); status != http.StatusUnauthorized {
-		t.Fatalf("без входа ожидался 401, получен %d", status)
+	if status, _ := e.do(http.MethodGet, "/api/summary", nil); status != http.StatusOK {
+		t.Fatalf("сводка вернула %d", status)
 	}
 }

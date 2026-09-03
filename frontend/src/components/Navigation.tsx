@@ -14,7 +14,6 @@ interface Props {
   active: Tab;
   unread: number;
   reauth: number;
-  email: string;
   onNavigate: (tab: Tab) => void;
 }
 
@@ -25,7 +24,7 @@ function badgeFor(tab: Tab, unread: number, reauth: number): number {
 }
 
 /** Боковая панель 252px — десктоп. */
-export function Rail({ active, unread, reauth, email, onNavigate }: Props) {
+export function Rail({ active, unread, reauth, onNavigate }: Props) {
   const index = TABS.findIndex((tab) => tab.key === active);
   return (
     <nav className="rail" aria-label="Разделы">
@@ -61,20 +60,13 @@ export function Rail({ active, unread, reauth, email, onNavigate }: Props) {
         })}
       </div>
       <div className="rail__spacer" />
-      <div className="rail__user">
-        <span className="rail__avatar">{email.slice(0, 1).toUpperCase()}</span>
-        <div className="head-titles">
-          <span className="msg-card__from ellipsis">{email}</span>
-          <span className="msg-card__addr ellipsis">Аккаунт</span>
-        </div>
-      </div>
     </nav>
   );
 }
 
 /** Нижний таб-бар — телефон. Счётчиков здесь нет: в референсе бейджи
  * показывает только боковая панель десктопа. */
-export function TabBar({ active, onNavigate }: Omit<Props, 'email' | 'unread' | 'reauth'>) {
+export function TabBar({ active, onNavigate }: Omit<Props, 'unread' | 'reauth'>) {
   const index = TABS.findIndex((tab) => tab.key === active);
   return (
     <div className="tabbar">

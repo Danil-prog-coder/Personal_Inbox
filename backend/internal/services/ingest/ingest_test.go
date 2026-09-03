@@ -25,7 +25,7 @@ func newIngestor(t *testing.T) (*Ingestor, *postgres.DB, *events.Bus, *fakeQueue
 
 func newConnection(t *testing.T, db *postgres.DB, email, kind string) *postgres.Connection {
 	t.Helper()
-	user, err := db.CreateUser(email, "хеш", "")
+	user, err := db.CreateUser("")
 	if err != nil {
 		t.Fatal(err)
 	}

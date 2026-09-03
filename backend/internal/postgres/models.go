@@ -28,16 +28,15 @@ func UTCNow() time.Time {
 	return time.Now().UTC().Truncate(time.Microsecond)
 }
 
-// User — пользователь один на инсталляцию, но таблица всё равно нужна:
-// на ней висит аутентификация.
+// User — пользователь один на инсталляцию: входа нет, приложение локальное.
+// Таблица всё равно нужна: на строке висят настройки, а на её id —
+// подключения и сообщения.
 type User struct {
-	ID           int64
-	Email        string
-	PasswordHash string
-	Criteria     string
-	Theme        string
-	Density      string
-	CreatedAt    time.Time
+	ID        int64
+	Criteria  string
+	Theme     string
+	Density   string
+	CreatedAt time.Time
 }
 
 // Connection — одна строка на (пользователь, сервис). Отключение источника

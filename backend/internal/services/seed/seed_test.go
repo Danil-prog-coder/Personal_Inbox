@@ -60,7 +60,7 @@ func TestSeedKeepsTextsVerbatim(t *testing.T) {
 
 func TestSeedCreatesUserConnectionsAndMessages(t *testing.T) {
 	db := newDB(t)
-	created, err := Seed(db, "хеш", time.Time{})
+	created, err := Seed(db, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestSeedCreatesUserConnectionsAndMessages(t *testing.T) {
 		t.Fatalf("залито %d сообщений вместо 19", created)
 	}
 
-	user, err := db.UserByEmail(DemoEmail)
+	user, err := db.LocalUser()
 	if err != nil {
 		t.Fatalf("демо-пользователь не создан: %v", err)
 	}
@@ -92,10 +92,10 @@ func TestSeedCreatesUserConnectionsAndMessages(t *testing.T) {
 
 func TestSeedIsIdempotent(t *testing.T) {
 	db := newDB(t)
-	if _, err := Seed(db, "хеш", time.Time{}); err != nil {
+	if _, err := Seed(db, time.Time{}); err != nil {
 		t.Fatal(err)
 	}
-	created, err := Seed(db, "хеш", time.Time{})
+	created, err := Seed(db, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,10 +106,10 @@ func TestSeedIsIdempotent(t *testing.T) {
 
 func TestSeededMessagesAreAnalyzed(t *testing.T) {
 	db := newDB(t)
-	if _, err := Seed(db, "хеш", time.Time{}); err != nil {
+	if _, err := Seed(db, time.Time{}); err != nil {
 		t.Fatal(err)
 	}
-	user, err := db.UserByEmail(DemoEmail)
+	user, err := db.LocalUser()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,10 +126,10 @@ func TestSeededMessagesAreAnalyzed(t *testing.T) {
 
 func TestGroupChatMessageHasNoLink(t *testing.T) {
 	db := newDB(t)
-	if _, err := Seed(db, "хеш", time.Time{}); err != nil {
+	if _, err := Seed(db, time.Time{}); err != nil {
 		t.Fatal(err)
 	}
-	user, err := db.UserByEmail(DemoEmail)
+	user, err := db.LocalUser()
 	if err != nil {
 		t.Fatal(err)
 	}

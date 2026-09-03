@@ -1,8 +1,6 @@
 package routers
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -10,18 +8,8 @@ import (
 	"strings"
 
 	"personalinbox/internal/postgres"
-	"personalinbox/internal/redis"
 	"personalinbox/internal/schemas"
 )
-
-// randomState — одноразовое значение state для OAuth: защита от подмены ответа.
-func randomState() string {
-	raw := make([]byte, 16)
-	if _, err := rand.Read(raw); err != nil {
-		return "personal-inbox-state"
-	}
-	return base64.RawURLEncoding.EncodeToString(raw)
-}
 
 // handleListConnections: оба источника всегда в списке, неподключённый
 // показывается как off.
@@ -56,16 +44,14 @@ func (s *Server) handleGmailStart(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	state := randomState()
+	state, err := s.cache.NewOAuthState(r.Context(), user.ID)
+	if err != nil {
+		fail(w, http.StatusServiceUnavailable, "Хранилище недоступно")
+		return
+	}
 	authURL, err := s.gmail.AuthURL(state)
 	if err != nil {
 		fail(w, http.StatusServiceUnavailable, err.Error())
-		return
-	}
-	// state кладётся в уже существующую сессию: токен и вход не меняются.
-	_, token := s.session(r)
-	if err := s.saveSession(r, token, redis.Session{UserID: user.ID, OAuthState: state}); err != nil {
-		fail(w, http.StatusServiceUnavailable, "Хранилище сессий недоступно")
 		return
 	}
 	respond(w, http.StatusOK, map[string]string{"auth_url": authURL})
@@ -76,16 +62,12 @@ func (s *Server) handleGmailCallback(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	value, token := s.session(r)
-	expected := value.OAuthState
+	// state одноразовый: TakeOAuthState забирает его и сразу удаляет, поэтому
+	// повторно тот же ответ Google не пройдёт.
+	expected := s.cache.TakeOAuthState(r.Context(), user.ID)
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
-	// state одноразовый: после проверки его в сессии больше нет.
-	if err := s.saveSession(r, token, redis.Session{UserID: user.ID}); err != nil {
-		fail(w, http.StatusServiceUnavailable, "Хранилище сессий недоступно")
-		return
-	}
-	if code == "" || state == "" || state != expected {
+	if code == "" || state == "" || expected == "" || state != expected {
 		fail(w, http.StatusBadRequest, "Авторизация Google не подтверждена")
 		return
 	}

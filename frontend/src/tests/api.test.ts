@@ -51,10 +51,10 @@ describe('api.messages', () => {
 
 describe('обработка ошибок', () => {
   it('показывает текст detail от бэкенда', async () => {
-    mockFetch({ ok: false, status: 401, body: { detail: 'Неверный email или пароль' } });
-    await expect(api.login('me@northline.io', 'нет')).rejects.toMatchObject({
-      status: 401,
-      message: 'Неверный email или пароль',
+    mockFetch({ ok: false, status: 422, body: { detail: 'Неизвестная тема' } });
+    await expect(api.updateMe({ theme: 'ночь' as never })).rejects.toMatchObject({
+      status: 422,
+      message: 'Неизвестная тема',
     });
   });
 
@@ -64,7 +64,7 @@ describe('обработка ошибок', () => {
       status: 422,
       body: { detail: [{ msg: 'String should have at least 8 characters' }] },
     });
-    await expect(api.register('me@northline.io', 'мало')).rejects.toBeInstanceOf(ApiError);
+    await expect(api.updateMe({ criteria: 'что угодно' })).rejects.toBeInstanceOf(ApiError);
   });
 
   it('обрыв сети превращает в понятную ошибку', async () => {
@@ -79,6 +79,6 @@ describe('обработка ошибок', () => {
 
   it('204 не пытается разобрать тело', async () => {
     mockFetch({ status: 204 });
-    await expect(api.logout()).resolves.toBeUndefined();
+    await expect(api.disconnect('gmail')).resolves.toBeUndefined();
   });
 });

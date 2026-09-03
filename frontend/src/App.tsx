@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Rail, TabBar, TABS } from './components/Navigation';
 import type { Tab } from './components/Navigation';
+import { Notice } from './components/Notice';
 import { Toast } from './components/Toast';
 import { useIsDesktop } from './hooks/useMediaQuery';
 import { useStream } from './hooks/useStream';
-import { AuthScreen, OnboardingScreen } from './screens/AuthScreen';
+import { OnboardingScreen } from './screens/OnboardingScreen';
 import { ConnectionsScreen } from './screens/ConnectionsScreen';
 import { FeedScreen } from './screens/FeedScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
@@ -14,6 +15,10 @@ import type { Connection, Density, SourceCard, SourceKind, Theme, User } from '.
 
 const THEME_KEY = 'pi-theme';
 const DENSITY_KEY = 'pi-density';
+// Онбординг спрашивают один раз на установку. Отметка локальная: на сервере
+// для неё нет поля, а пустые критерии — законный выбор («Пропустить»),
+// по ним отличить «ещё не спрашивали» нельзя (решение №50).
+const ONBOARDED_KEY = 'pi-onboarded';
 
 function readStored<T extends string>(key: string, fallback: T): T {
   try {
@@ -24,7 +29,8 @@ function readStored<T extends string>(key: string, fallback: T): T {
 }
 
 export function App() {
-  // undefined — профиль ещё грузится, null — пользователь не вошёл.
+  // undefined — профиль ещё грузится, null — до сервера не достучались.
+  // Третьего состояния нет: входа в приложение больше не существует.
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [onboarding, setOnboarding] = useState(false);
   const [tab, setTab] = useState<Tab>('feed');
@@ -61,17 +67,21 @@ export function App() {
     setConnections(nextConnections);
   }, []);
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
+    setUser(undefined);
     api
       .me()
       .then((profile) => {
         setUser(profile);
         setTheme(profile.theme);
         setDensity(profile.density);
+        // Критерии пустые и об этом ещё не спрашивали — значит установка новая.
+        setOnboarding(!profile.criteria && !readStored(ONBOARDED_KEY, ''));
       })
-      // 401 — просто не вошли; любая другая ошибка тоже приводит на экран входа.
       .catch(() => setUser(null));
   }, []);
+
+  useEffect(loadProfile, [loadProfile]);
 
   useEffect(() => {
     if (user) void loadData();
@@ -99,15 +109,6 @@ export function App() {
     void api.updateMe({ density: next });
   };
 
-  const logout = async () => {
-    await api.logout();
-    setUser(null);
-    setSources([]);
-    setConnections([]);
-    setTab('feed');
-    setOpenedSource(null);
-  };
-
   const openMessageFromSummary = async (id: number) => {
     const message = await api.message(id);
     setTab('feed');
@@ -124,21 +125,16 @@ export function App() {
     );
   }
 
+  // Сервер не ответил. Раньше на этом месте был экран входа, и он же случайно
+  // работал заглушкой: теперь причину надо назвать прямо.
   if (user === null) {
     return (
-      <>
-        <div className="page-bg" />
-        <div className="app">
-          <AuthScreen
-            onAuthenticated={(profile, isNew) => {
-              setUser(profile);
-              setTheme(profile.theme);
-              setDensity(profile.density);
-              setOnboarding(isNew);
-            }}
-          />
-        </div>
-      </>
+      <Notice
+        title="Нет связи с сервером"
+        text="Приложение не смогло получить данные. Проверьте, запущен ли бэкенд."
+        actionLabel="Повторить"
+        onAction={loadProfile}
+      />
     );
   }
 
@@ -152,6 +148,11 @@ export function App() {
               if (criteria.trim()) {
                 const result = await api.updateMe({ criteria });
                 setUser(result.user);
+              }
+              try {
+                localStorage.setItem(ONBOARDED_KEY, 'yes');
+              } catch {
+                // Приватный режим — спросим ещё раз в следующий запуск.
               }
               setOnboarding(false);
             }}
@@ -173,7 +174,6 @@ export function App() {
             active={tab}
             unread={unread}
             reauth={reauth}
-            email={user.email}
             onNavigate={(next) => {
               setTab(next);
               if (next !== 'feed') setOpenedSource(null);
@@ -209,7 +209,6 @@ export function App() {
             onDensityChange={applyDensity}
             onUserChange={setUser}
             onGoConnections={() => setTab('connections')}
-            onLogout={logout}
             onToast={showToast}
           />
         )}

@@ -9,7 +9,6 @@ export type SummaryPeriod = '24h' | 'week' | 'month';
 
 export interface User {
   id: number;
-  email: string;
   criteria: string;
   theme: Theme;
   density: Density;

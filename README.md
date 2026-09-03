@@ -44,6 +44,10 @@
 > входа не пустит. Полноценно — команда ниже: она поднимает и статику,
 > и API на одном адресе.
 
+Входа и регистрации нет: приложение локальное и обслуживает одного пользователя,
+своего владельца (решение №50 в `docs/04-decisions.md`). Открыли — работаете.
+Обратная сторона: все ручки открыты, наружу такое выставлять нельзя.
+
 ### Всё сразу, в контейнерах
 
 ```bash
@@ -52,7 +56,7 @@ docker compose up --build     # http://localhost:8080
 ```
 
 Поднимаются четыре сервиса: `postgres` (данные в томе `pgdata`), `redis`
-(сессии и кэш, том `redisdata`), `backend` и `nginx` — последний отдаёт
+(кэш, том `redisdata`), `backend` и `nginx` — последний отдаёт
 собранную статику фронтенда и проксирует `/api` на бэкенд, поэтому фронт и API
 живут на одном origin. Бэкенд стартует только после того, как база и Redis
 прошли healthcheck. Отдельных сервисов для миграций и тестов нет: схема
@@ -69,7 +73,7 @@ docker compose exec backend /app/seed
 
 ```bash
 cp .env.example .env  # ключи можно не заполнять: приложение поднимется и без них
-make seed           # 19 демо-сообщений из референса, вход demo@personal.inbox / demo12345
+make seed           # 19 демо-сообщений из референса
 make run            # http://localhost:8000
 make test           # тесты бэкенда
 make lint           # go vet и gofmt
@@ -134,8 +138,8 @@ backend/
   cmd/server/         точка входа: маршруты, планировщик, корректная остановка
   cmd/seed/           заливка демо-данных, флаг --live для очереди SSE
   internal/core/          настройки: окружение, .env, константы
-  internal/routers/       ручки: auth, me, connections, sources, messages, summary, stream
-                          session.go — подписанная cookie вместо JWT
+  internal/routers/       ручки: me, connections, sources, messages, summary, stream
+                          user.go — единственный пользователь установки
   internal/schemas/       схемы ответов API
   internal/exceptions/    сквозные ошибки: не найдено, модель недоступна, сбой источника
   internal/services/      бизнес-логика, по папке на задачу:
@@ -144,12 +148,11 @@ backend/
     scheduler/            синхронизация раз в 5 минут
     seed/                 демо-данные из референса
   internal/postgres/      база: модели, SQL, фильтры ленты, migrations/*.sql через embed
-  internal/redis/         сессии и кэш сводки/источников
+  internal/redis/         кэш сводки/источников и state OAuth
   internal/openai/        адаптер модели: промпт, строгая схема ответа
   internal/gmail/         OAuth + History API
   internal/telegram/      Bot API
   internal/events/        шина событий для SSE
-  internal/utils/         вспомогательное: security/ — пароли (bcrypt)
   internal/testenv/       стенд для тестов: своя схема в Postgres и префикс в Redis
 frontend/             React 18 + TypeScript + Vite
   nginx.conf          статика и прокси /api для контейнера

@@ -195,7 +195,7 @@ func gmailAPI(t *testing.T, routes map[string]func(r *http.Request) (int, string
 func newIngestor(t *testing.T) (*ingest.Ingestor, *postgres.Connection) {
 	t.Helper()
 	db := testenv.DB(t)
-	user, err := db.CreateUser("max@northline.io", "хеш", "")
+	user, err := db.CreateUser("")
 	if err != nil {
 		t.Fatal(err)
 	}

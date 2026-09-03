@@ -19,7 +19,7 @@ func (q *fakeQueue) Enqueue(id int64) { q.ids = append(q.ids, id) }
 func newScheduler(t *testing.T) (*Scheduler, *postgres.DB, *postgres.User) {
 	t.Helper()
 	db := testenv.DB(t)
-	user, err := db.CreateUser("max@northline.io", "хеш", "")
+	user, err := db.CreateUser("")
 	if err != nil {
 		t.Fatal(err)
 	}

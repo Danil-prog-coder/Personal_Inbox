@@ -11,9 +11,6 @@ import (
 )
 
 const (
-	SessionCookie = "pi_session"
-	SessionMaxAge = 30 * 24 * time.Hour
-
 	LLMMaxBodyChars    = 4000 // обрезка текста сообщения перед отправкой в модель
 	LLMOverrideHistory = 20   // сколько ручных исправлений уходит в промпт
 
