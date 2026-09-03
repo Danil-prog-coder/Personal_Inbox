@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"personalinbox/internal/core"
-	"personalinbox/internal/sqlite"
+	"personalinbox/internal/postgres"
 )
 
 const validResponse = `{"level": "HIGH", "category": "Финансы", "deadline": "Пятница",
@@ -93,7 +93,7 @@ func TestPromptTruncatesLongBody(t *testing.T) {
 
 func TestPromptIncludesOverrides(t *testing.T) {
 	prompt := BuildUserPrompt(Request{
-		Overrides: []sqlite.Override{{Subject: "Счёт", Level: "CRITICAL"}},
+		Overrides: []postgres.Override{{Subject: "Счёт", Level: "CRITICAL"}},
 	})
 	if !strings.Contains(prompt, "- Счёт → CRITICAL") {
 		t.Fatalf("ручные исправления не попали в промпт:\n%s", prompt)

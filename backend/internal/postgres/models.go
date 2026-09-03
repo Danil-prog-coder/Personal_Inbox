@@ -1,6 +1,4 @@
-// Package store — модель данных и доступ к SQLite. Имена полей и значения
-// перечислений — из docs/03-data-model.md, менять их без правки документа нельзя.
-package sqlite
+package postgres
 
 import "time"
 

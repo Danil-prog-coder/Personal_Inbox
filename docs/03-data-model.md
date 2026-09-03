@@ -13,7 +13,7 @@ ConnStates  = "off" | "active" | "reauth"                // три состоя�
 MsgStatuses = "PROCESSING" | "DONE"                      // статус оценки моделью
 ```
 
-Списки объявлены в `backend/internal/sqlite/models.go` и проверяются функцией
+Списки объявлены в `backend/internal/postgres/models.go` и проверяются функцией
 `store.Contains`: значение вне списка — это 422, а не запись мусора в базу.
 
 `level` в БД хранится строкой из четырёх значений выше — не числом, не индексом.
@@ -24,10 +24,12 @@ MsgStatuses = "PROCESSING" | "DONE"                      // статус оце�
 
 ## 2. Таблицы
 
-### `user`
+### `users`
+Таблица называется во множественном числе: `user` — зарезервированное слово Postgres.
+
 | Поле | Тип | Заметки |
 | --- | --- | --- |
-| `id` | int PK | |
+| `id` | bigserial PK | |
 | `email` | str unique | |
 | `password_hash` | str | bcrypt |
 | `criteria` | text | критерии важности, может быть пустой строкой |
@@ -148,6 +150,13 @@ MsgStatuses = "PROCESSING" | "DONE"                      // статус оце�
 ---
 
 ## 6. HTTP API
+
+Сессии лежат в Redis по ключу `session:<токен>` со сроком жизни 30 дней;
+в cookie уходит только непрозрачный случайный токен. Выход удаляет ключ —
+украденная cookie после выхода бесполезна.
+
+Кэш — ключи `cache:<user_id>:<имя>` со сроком 45 секунд: `sources` и
+`summary:<период>`. Сбрасывается на любой записи, которая меняет ленту.
 
 Все ответы — JSON. Аутентификация — сессионная cookie (`httpOnly`, `SameSite=Lax`),
 содержимое подписано HMAC-SHA256 на `SESSION_SECRET`. JWT не заводим:

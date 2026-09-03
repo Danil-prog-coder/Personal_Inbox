@@ -1,4 +1,4 @@
-package sqlite
+package postgres
 
 import (
 	"database/sql"
@@ -11,15 +11,14 @@ const userColumns = `id, email, password_hash, criteria, theme, density, created
 
 func scanUser(row interface{ Scan(...any) error }) (*User, error) {
 	var user User
-	var createdAt dbTime
 	if err := row.Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Criteria,
-		&user.Theme, &user.Density, &createdAt); err != nil {
+		&user.Theme, &user.Density, &user.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, exceptions.ErrNotFound
 		}
 		return nil, err
 	}
-	user.CreatedAt = createdAt.Time
+	user.CreatedAt = user.CreatedAt.UTC()
 	return &user, nil
 }
 
@@ -33,20 +32,15 @@ func (db *DB) CreateUser(email, passwordHash, criteria string) (*User, error) {
 		Density:      "spacious",
 		CreatedAt:    UTCNow(),
 	}
-	result, err := db.Exec(
-		`INSERT INTO user (email, password_hash, criteria, theme, density, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
+	// RETURNING вместо LastInsertId: Postgres его не поддерживает.
+	if err := db.QueryRow(
+		`INSERT INTO users (email, password_hash, criteria, theme, density, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
 		user.Email, user.PasswordHash, user.Criteria, user.Theme, user.Density,
-		ToDBTime(user.CreatedAt),
-	)
-	if err != nil {
+		user.CreatedAt,
+	).Scan(&user.ID); err != nil {
 		return nil, err
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-	user.ID = id
 	return user, nil
 }
 
@@ -54,18 +48,18 @@ func (db *DB) CreateUser(email, passwordHash, criteria string) (*User, error) {
 func (db *DB) UserByEmail(email string) (*User, error) {
 	needle := strings.ToLower(strings.TrimSpace(email))
 	return scanUser(db.QueryRow(
-		`SELECT `+userColumns+` FROM user WHERE unilower(email) = ?`, needle))
+		`SELECT `+userColumns+` FROM users WHERE lower(email) = ?`, needle))
 }
 
 // UserByID — пользователь сессии.
 func (db *DB) UserByID(id int64) (*User, error) {
-	return scanUser(db.QueryRow(`SELECT `+userColumns+` FROM user WHERE id = ?`, id))
+	return scanUser(db.QueryRow(`SELECT `+userColumns+` FROM users WHERE id = ?`, id))
 }
 
 // SaveUser сохраняет изменяемые поля профиля.
 func (db *DB) SaveUser(user *User) error {
 	_, err := db.Exec(
-		`UPDATE user SET password_hash = ?, criteria = ?, theme = ?, density = ? WHERE id = ?`,
+		`UPDATE users SET password_hash = ?, criteria = ?, theme = ?, density = ? WHERE id = ?`,
 		user.PasswordHash, user.Criteria, user.Theme, user.Density, user.ID)
 	return err
 }

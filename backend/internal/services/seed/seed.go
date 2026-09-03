@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"personalinbox/internal/events"
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/schemas"
-	"personalinbox/internal/sqlite"
 )
 
 // Вход в демо-ленту.
@@ -272,7 +272,7 @@ func externalURL(kind, addr, externalID string) string {
 
 // GetOrCreateUser — демо-пользователь. Пароль хешируется вызывающей стороной:
 // пакет seed не должен знать про bcrypt.
-func GetOrCreateUser(db *sqlite.DB, passwordHash string) (*sqlite.User, error) {
+func GetOrCreateUser(db *postgres.DB, passwordHash string) (*postgres.User, error) {
 	user, err := db.UserByEmail(DemoEmail)
 	if err == nil {
 		return user, nil
@@ -284,13 +284,13 @@ func GetOrCreateUser(db *sqlite.DB, passwordHash string) (*sqlite.User, error) {
 }
 
 // GetOrCreateConnection — источник демо-ленты вместе с состоянием из референса.
-func GetOrCreateConnection(db *sqlite.DB, user *sqlite.User, kind string) (*sqlite.Connection, error) {
+func GetOrCreateConnection(db *postgres.DB, user *postgres.User, kind string) (*postgres.Connection, error) {
 	connection, err := db.GetOrCreateConnection(user.ID, kind)
 	if err != nil {
 		return nil, err
 	}
 	credentials, _ := json.Marshal(map[string]bool{"demo": true})
-	now := sqlite.UTCNow()
+	now := postgres.UTCNow()
 	connection.Account = Accounts[kind]
 	connection.State = States[kind]
 	connection.Credentials = string(credentials)
@@ -302,15 +302,15 @@ func GetOrCreateConnection(db *sqlite.DB, user *sqlite.User, kind string) (*sqli
 }
 
 // Seed заливает демо-ленту. Повторный запуск ничего не дублирует.
-func Seed(db *sqlite.DB, passwordHash string, now time.Time) (int, error) {
+func Seed(db *postgres.DB, passwordHash string, now time.Time) (int, error) {
 	if now.IsZero() {
-		now = sqlite.UTCNow()
+		now = postgres.UTCNow()
 	}
 	user, err := GetOrCreateUser(db, passwordHash)
 	if err != nil {
 		return 0, err
 	}
-	connections := map[string]*sqlite.Connection{}
+	connections := map[string]*postgres.Connection{}
 	for kind := range Accounts {
 		connection, err := GetOrCreateConnection(db, user, kind)
 		if err != nil {
@@ -329,8 +329,8 @@ func Seed(db *sqlite.DB, passwordHash string, now time.Time) (int, error) {
 		} else if !errors.Is(err, exceptions.ErrNotFound) {
 			return created, err
 		}
-		analyzedAt := sqlite.UTCNow()
-		message := &sqlite.Message{
+		analyzedAt := postgres.UTCNow()
+		message := &postgres.Message{
 			ConnectionID: connection.ID,
 			ExternalID:   externalID,
 			SenderName:   item.From,
@@ -361,7 +361,7 @@ func Seed(db *sqlite.DB, passwordHash string, now time.Time) (int, error) {
 // PlayLiveQueue проигрывает очередь «новых» сообщений: карточка появляется
 // в PROCESSING и через пару секунд достраивается. Работает только внутри
 // процесса сервера — события SSE живут в его памяти.
-func PlayLiveQueue(db *sqlite.DB, bus *events.Bus, passwordHash string,
+func PlayLiveQueue(db *postgres.DB, bus *events.Bus, passwordHash string,
 	firstDelay, interval, analyzeDelay time.Duration) {
 	time.Sleep(firstDelay)
 	for index, template := range LiveQueue {
@@ -374,7 +374,7 @@ func PlayLiveQueue(db *sqlite.DB, bus *events.Bus, passwordHash string,
 	}
 }
 
-func playOne(db *sqlite.DB, bus *events.Bus, passwordHash string, index int,
+func playOne(db *postgres.DB, bus *events.Bus, passwordHash string, index int,
 	template LiveItem, analyzeDelay time.Duration) error {
 	user, err := GetOrCreateUser(db, passwordHash)
 	if err != nil {
@@ -392,14 +392,14 @@ func playOne(db *sqlite.DB, bus *events.Bus, passwordHash string, index int,
 		return err
 	}
 
-	message := &sqlite.Message{
+	message := &postgres.Message{
 		ConnectionID: connection.ID,
 		ExternalID:   externalID,
 		SenderName:   template.From,
 		SenderAddr:   template.Addr,
 		Subject:      template.Subj,
 		Body:         template.Text,
-		ReceivedAt:   sqlite.UTCNow(),
+		ReceivedAt:   postgres.UTCNow(),
 		IsRead:       false,
 		Status:       "PROCESSING",
 		ExternalURL:  externalURL(kind, template.Addr, externalID),
@@ -411,7 +411,7 @@ func playOne(db *sqlite.DB, bus *events.Bus, passwordHash string, index int,
 	bus.Publish(user.ID, "message.created", schemas.MessageOut(message))
 
 	time.Sleep(analyzeDelay)
-	analyzedAt := sqlite.UTCNow()
+	analyzedAt := postgres.UTCNow()
 	message.Status = "DONE"
 	message.Level = template.Res.Level
 	message.Category = template.Res.Cat

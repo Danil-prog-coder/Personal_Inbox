@@ -1,12 +1,12 @@
 package ingest
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
 	"personalinbox/internal/events"
-	"personalinbox/internal/sqlite"
+	"personalinbox/internal/postgres"
+	"personalinbox/internal/testenv"
 )
 
 // fakeQueue заменяет рабочий поток: в тестах важно, что сообщение поставлено
@@ -15,19 +15,15 @@ type fakeQueue struct{ ids []int64 }
 
 func (q *fakeQueue) Enqueue(id int64) { q.ids = append(q.ids, id) }
 
-func newIngestor(t *testing.T) (*Ingestor, *sqlite.DB, *events.Bus, *fakeQueue) {
+func newIngestor(t *testing.T) (*Ingestor, *postgres.DB, *events.Bus, *fakeQueue) {
 	t.Helper()
-	db, err := sqlite.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatalf("база: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
+	db := testenv.DB(t)
 	bus := events.New(50)
 	queue := &fakeQueue{}
 	return New(db, bus, queue), db, bus, queue
 }
 
-func newConnection(t *testing.T, db *sqlite.DB, email, kind string) *sqlite.Connection {
+func newConnection(t *testing.T, db *postgres.DB, email, kind string) *postgres.Connection {
 	t.Helper()
 	user, err := db.CreateUser(email, "хеш", "")
 	if err != nil {

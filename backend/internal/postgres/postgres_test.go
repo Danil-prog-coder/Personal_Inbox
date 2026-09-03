@@ -1,19 +1,34 @@
-package sqlite
+package postgres
 
 import (
-	"path/filepath"
+	"crypto/rand"
+	"encoding/hex"
+	"os"
 	"testing"
 	"time"
 )
 
-// newDB — отдельная база на каждый тест: файл в каталоге, который t сам уберёт.
+// newDB — отдельная схема на каждый тест: миграции накатываются заново,
+// в конце схема сносится. Свой хелпер, а не internal/testenv: тот импортирует
+// этот пакет, и вышел бы цикл.
 func newDB(t *testing.T) *DB {
 	t.Helper()
-	db, err := Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatalf("открыть базу: %v", err)
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		dsn = os.Getenv("DATABASE_URL")
 	}
-	t.Cleanup(func() { db.Close() })
+	if dsn == "" {
+		dsn = "postgres://personalinbox:personalinbox@localhost:5432/personalinbox?sslmode=disable"
+	}
+	raw := make([]byte, 6)
+	if _, err := rand.Read(raw); err != nil {
+		t.Fatalf("случайное имя: %v", err)
+	}
+	db, drop, err := OpenSchema(dsn, "test_"+hex.EncodeToString(raw))
+	if err != nil {
+		t.Fatalf("postgres недоступен (%s): %v", dsn, err)
+	}
+	t.Cleanup(drop)
 	return db
 }
 

@@ -22,13 +22,20 @@ const (
 	SyncInterval     = 5 * time.Minute // частота синхронизации источников
 )
 
+// Адреса по умолчанию — для запуска без контейнеров: docker compose передаёт
+// свои через окружение.
+const (
+	defaultDatabaseURL = "postgres://personalinbox:personalinbox@localhost:5432/personalinbox?sslmode=disable"
+	defaultRedisURL    = "redis://localhost:6379/0"
+)
+
 // LLMRetryDelays — три повтора: 2с / 8с / 30с (docs/00-product-spec.md, п. 6.1).
 var LLMRetryDelays = []time.Duration{2 * time.Second, 8 * time.Second, 30 * time.Second}
 
 // Config — всё, что читается из окружения. Собирается один раз при старте.
 type Config struct {
-	DatabasePath  string
-	SessionSecret string
+	DatabaseURL string
+	RedisURL    string
 
 	OpenAIKey   string
 	OpenAIModel string
@@ -51,10 +58,8 @@ func Load() Config {
 
 	appBase := env("APP_BASE_URL", "http://localhost:8000")
 	c := Config{
-		DatabasePath: env("DATABASE_PATH", defaultDatabasePath()),
-		// Ключ по умолчанию годится только для локального запуска: при смене
-		// ключа все выданные cookie перестают действовать.
-		SessionSecret:      env("SESSION_SECRET", "personal-inbox-dev-secret"),
+		DatabaseURL:        env("DATABASE_URL", defaultDatabaseURL),
+		RedisURL:           env("REDIS_URL", defaultRedisURL),
 		OpenAIKey:          env("OPENAI_API_KEY", ""),
 		OpenAIModel:        env("OPENAI_MODEL", "gpt-4o-mini"),
 		GoogleClientID:     env("GOOGLE_CLIENT_ID", ""),
@@ -84,14 +89,6 @@ func flag(name string, fallback bool) bool {
 		return fallback
 	}
 	return value == "1" || value == "true" || value == "yes" || value == "on"
-}
-
-// defaultDatabasePath — файл рядом с исходниками бэкенда, как было в Python-версии.
-func defaultDatabasePath() string {
-	if dir := repoRoot(); dir != "" {
-		return filepath.Join(dir, "backend", "personal_inbox.db")
-	}
-	return "personal_inbox.db"
 }
 
 func dotEnvPath() string {

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/schemas"
-	"personalinbox/internal/sqlite"
 )
 
 func (e *env) list(query string) schemas.MessageList {
@@ -28,11 +28,11 @@ func TestListReturnsNewestFirst(t *testing.T) {
 	connection := e.connection(user, "gmail", "active")
 	older := e.message(connection, func(m *messageModel) {
 		m.Subject = "Старое"
-		m.ReceivedAt = sqlite.UTCNow().Add(-2 * time.Hour)
+		m.ReceivedAt = postgres.UTCNow().Add(-2 * time.Hour)
 	})
 	newer := e.message(connection, func(m *messageModel) {
 		m.Subject = "Новое"
-		m.ReceivedAt = sqlite.UTCNow()
+		m.ReceivedAt = postgres.UTCNow()
 	})
 
 	result := e.list("")
@@ -134,9 +134,9 @@ func TestFilterByPeriod(t *testing.T) {
 	e := newEnv(t)
 	user := e.authorized()
 	connection := e.connection(user, "gmail", "active")
-	e.message(connection, func(m *messageModel) { m.ReceivedAt = sqlite.UTCNow().Add(-time.Hour) })
+	e.message(connection, func(m *messageModel) { m.ReceivedAt = postgres.UTCNow().Add(-time.Hour) })
 	e.message(connection, func(m *messageModel) {
-		m.ReceivedAt = sqlite.UTCNow().Add(-40 * 24 * time.Hour)
+		m.ReceivedAt = postgres.UTCNow().Add(-40 * 24 * time.Hour)
 	})
 
 	if result := e.list("?period=week"); result.Total != 1 {

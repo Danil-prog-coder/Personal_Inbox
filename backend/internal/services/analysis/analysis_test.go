@@ -3,14 +3,14 @@ package analysis
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"personalinbox/internal/exceptions"
 	"testing"
 	"time"
 
 	"personalinbox/internal/events"
 	"personalinbox/internal/openai"
-	"personalinbox/internal/sqlite"
+	"personalinbox/internal/postgres"
+	"personalinbox/internal/testenv"
 )
 
 // fakeAnalyzer отвечает по сценарию: сколько раз упасть и что вернуть потом.
@@ -41,13 +41,9 @@ func goodResult() openai.Result {
 	}
 }
 
-func newWorker(t *testing.T, analyzer openai.Analyzer) (*Worker, *sqlite.DB, *events.Bus) {
+func newWorker(t *testing.T, analyzer openai.Analyzer) (*Worker, *postgres.DB, *events.Bus) {
 	t.Helper()
-	db, err := sqlite.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatalf("база: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
+	db := testenv.DB(t)
 	bus := events.New(50)
 	worker := NewWorker(db, bus, analyzer)
 	// Тесты не ждут 40 секунд задержек между попытками.
@@ -55,7 +51,7 @@ func newWorker(t *testing.T, analyzer openai.Analyzer) (*Worker, *sqlite.DB, *ev
 	return worker, db, bus
 }
 
-func newMessage(t *testing.T, db *sqlite.DB, criteria string, apply func(*sqlite.Message)) (*sqlite.Message, *sqlite.User) {
+func newMessage(t *testing.T, db *postgres.DB, criteria string, apply func(*postgres.Message)) (*postgres.Message, *postgres.User) {
 	t.Helper()
 	user, err := db.CreateUser("max@northline.io", "хеш", criteria)
 	if err != nil {
@@ -69,14 +65,14 @@ func newMessage(t *testing.T, db *sqlite.DB, criteria string, apply func(*sqlite
 	if err := db.SaveConnection(connection); err != nil {
 		t.Fatal(err)
 	}
-	message := &sqlite.Message{
+	message := &postgres.Message{
 		ConnectionID: connection.ID,
 		ExternalID:   "letter-1",
 		SenderName:   "Анна Ковалёва",
 		SenderAddr:   "a.kovaleva@northline.io",
 		Subject:      "Договор",
 		Body:         "Нужны правки",
-		ReceivedAt:   sqlite.UTCNow(),
+		ReceivedAt:   postgres.UTCNow(),
 		Status:       "PROCESSING",
 	}
 	if apply != nil {
@@ -194,8 +190,8 @@ func TestRequestCarriesCriteriaAndOverrides(t *testing.T) {
 func TestFailedReanalysisKeepsPreviousVerdict(t *testing.T) {
 	analyzer := &fakeAnalyzer{failures: 3}
 	worker, db, _ := newWorker(t, analyzer)
-	analyzed := sqlite.UTCNow()
-	message, _ := newMessage(t, db, "", func(m *sqlite.Message) {
+	analyzed := postgres.UTCNow()
+	message, _ := newMessage(t, db, "", func(m *postgres.Message) {
 		m.Level = "CRITICAL"
 		m.Category = "Юридическое"
 		m.Summary = "Правки к договору."
@@ -217,7 +213,7 @@ func TestFailedReanalysisKeepsPreviousVerdict(t *testing.T) {
 func TestQueueReanalysisMarksAllProcessing(t *testing.T) {
 	worker, db, _ := newWorker(t, &fakeAnalyzer{result: goodResult()})
 	_ = worker
-	message, user := newMessage(t, db, "", func(m *sqlite.Message) { m.Status = "DONE" })
+	message, user := newMessage(t, db, "", func(m *postgres.Message) { m.Status = "DONE" })
 	queue := &fakeQueue{}
 
 	count, err := QueueReanalysis(db, queue, user.ID)

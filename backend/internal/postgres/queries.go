@@ -1,4 +1,4 @@
-package sqlite
+package postgres
 
 import (
 	"strings"
@@ -89,9 +89,9 @@ func (db *DB) FilteredMessages(userID int64, filter Filter) ([]*Message, error) 
 	}
 	switch filter.Status {
 	case "unread":
-		where = append(where, "m.is_read = 0")
+		where = append(where, "m.is_read = false")
 	case "read":
-		where = append(where, "m.is_read = 1")
+		where = append(where, "m.is_read = true")
 	case "done":
 		where = append(where, "m.status = 'DONE'")
 	}
@@ -105,15 +105,15 @@ func (db *DB) FilteredMessages(userID int64, filter Filter) ([]*Message, error) 
 	}
 	if start := PeriodStart(filter.Period, filter.TZOffset, filter.Now); start != nil {
 		where = append(where, "m.received_at >= ?")
-		args = append(args, ToDBTime(*start))
+		args = append(args, start.UTC())
 	}
 	if query := strings.TrimSpace(filter.Q); query != "" {
 		// Поиск по отправителю, теме и тексту, регистронезависимо.
 		pattern := "%" + escapeLike(strings.ToLower(query)) + "%"
-		where = append(where, `(unilower(m.sender_name) LIKE ? ESCAPE '\'
-			OR unilower(m.sender_addr) LIKE ? ESCAPE '\'
-			OR unilower(m.subject) LIKE ? ESCAPE '\'
-			OR unilower(m.body) LIKE ? ESCAPE '\')`)
+		where = append(where, `(lower(m.sender_name) LIKE ? ESCAPE '\'
+			OR lower(m.sender_addr) LIKE ? ESCAPE '\'
+			OR lower(m.subject) LIKE ? ESCAPE '\'
+			OR lower(m.body) LIKE ? ESCAPE '\')`)
 		args = append(args, pattern, pattern, pattern, pattern)
 	}
 
@@ -128,7 +128,7 @@ func (db *DB) MessagesSince(userID int64, since time.Time) ([]*Message, error) {
 	return db.queryMessages(
 		`SELECT `+messageColumns+` FROM message m JOIN connection c ON c.id = m.connection_id
 		 WHERE c.user_id = ? AND m.received_at >= ?
-		 ORDER BY m.received_at DESC, m.id DESC`, userID, ToDBTime(since))
+		 ORDER BY m.received_at DESC, m.id DESC`, userID, since.UTC())
 }
 
 // Distribution — счётчики по четырём уровням для полосы распределения.

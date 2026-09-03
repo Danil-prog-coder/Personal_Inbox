@@ -17,11 +17,8 @@ WORKDIR /app
 COPY --from=build /out/server /app/server
 COPY --from=build /out/seed /app/seed
 
-# База лежит в томе: пересборка образа не стирает данные.
-ENV DATABASE_PATH=/data/personal_inbox.db \
-    ADDR=:8000
-RUN mkdir -p /data && chown app:app /data
+# Данные лежат в Postgres, адреса приходят из окружения (docker-compose.yml).
+ENV ADDR=:8000
 USER app
-VOLUME ["/data"]
 EXPOSE 8000
 CMD ["/app/server"]

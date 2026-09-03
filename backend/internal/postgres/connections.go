@@ -1,4 +1,4 @@
-package sqlite
+package postgres
 
 import (
 	"database/sql"
@@ -10,7 +10,7 @@ const connectionColumns = `id, user_id, kind, state, account, credentials, last_
 
 func scanConnection(row interface{ Scan(...any) error }) (*Connection, error) {
 	var connection Connection
-	var lastSync dbTime
+	var lastSync sql.NullTime
 	var cursor sql.NullString
 	if err := row.Scan(&connection.ID, &connection.UserID, &connection.Kind, &connection.State,
 		&connection.Account, &connection.Credentials, &lastSync, &cursor); err != nil {
@@ -19,7 +19,7 @@ func scanConnection(row interface{ Scan(...any) error }) (*Connection, error) {
 		}
 		return nil, err
 	}
-	connection.LastSyncAt = lastSync.Ptr()
+	connection.LastSyncAt = nullTime(lastSync)
 	connection.SyncCursor = stringFromNull(cursor)
 	return &connection, nil
 }
@@ -108,14 +108,10 @@ func (db *DB) GetOrCreateConnection(userID int64, kind string) (*Connection, err
 	if !errors.Is(err, exceptions.ErrNotFound) {
 		return nil, err
 	}
-	result, err := db.Exec(
+	var id int64
+	if err := db.QueryRow(
 		`INSERT INTO connection (user_id, kind, state, account, credentials)
-		 VALUES (?, ?, 'off', '', '')`, userID, kind)
-	if err != nil {
-		return nil, err
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
+		 VALUES (?, ?, 'off', '', '') RETURNING id`, userID, kind).Scan(&id); err != nil {
 		return nil, err
 	}
 	return &Connection{ID: id, UserID: userID, Kind: kind, State: "off"}, nil
@@ -128,6 +124,6 @@ func (db *DB) SaveConnection(connection *Connection) error {
 		 SET state = ?, account = ?, credentials = ?, last_sync_at = ?, sync_cursor = ?
 		 WHERE id = ?`,
 		connection.State, connection.Account, connection.Credentials,
-		ToDBTimePtr(connection.LastSyncAt), nullString(connection.SyncCursor), connection.ID)
+		timePtr(connection.LastSyncAt), nullString(connection.SyncCursor), connection.ID)
 	return err
 }

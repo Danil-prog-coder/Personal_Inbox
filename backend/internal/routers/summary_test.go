@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/schemas"
-	"personalinbox/internal/sqlite"
 )
 
 func (e *env) summary(period string) schemas.Summary {
@@ -24,9 +24,9 @@ func TestSummaryWindow(t *testing.T) {
 	e := newEnv(t)
 	user := e.authorized()
 	connection := e.connection(user, "gmail", "active")
-	e.message(connection, func(m *messageModel) { m.ReceivedAt = sqlite.UTCNow().Add(-time.Hour) })
+	e.message(connection, func(m *messageModel) { m.ReceivedAt = postgres.UTCNow().Add(-time.Hour) })
 	e.message(connection, func(m *messageModel) {
-		m.ReceivedAt = sqlite.UTCNow().Add(-48 * time.Hour)
+		m.ReceivedAt = postgres.UTCNow().Add(-48 * time.Hour)
 	})
 
 	if result := e.summary("24h"); result.Total != 1 {

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"personalinbox/internal/events"
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/schemas"
 	"personalinbox/internal/services/analysis"
-	"personalinbox/internal/sqlite"
 )
 
 // Incoming — то, что источник знает о сообщении до оценки моделью.
@@ -26,28 +26,28 @@ type Incoming struct {
 
 // Ingestor — общая для источников точка сохранения сообщений.
 type Ingestor struct {
-	DB       *sqlite.DB
+	DB       *postgres.DB
 	Bus      *events.Bus
 	Enqueuer analysis.Enqueuer
 }
 
 // New собирает приёмник.
-func New(db *sqlite.DB, bus *events.Bus, enqueuer analysis.Enqueuer) *Ingestor {
+func New(db *postgres.DB, bus *events.Bus, enqueuer analysis.Enqueuer) *Ingestor {
 	return &Ingestor{DB: db, Bus: bus, Enqueuer: enqueuer}
 }
 
 // Store сохраняет входящее сообщение. Дубль (тот же external_id) — nil без ошибки.
-func (i *Ingestor) Store(connection *sqlite.Connection, incoming Incoming) (*sqlite.Message, error) {
+func (i *Ingestor) Store(connection *postgres.Connection, incoming Incoming) (*postgres.Message, error) {
 	return i.store(connection, incoming, true)
 }
 
 // StoreWithoutAnalysis нужен демо-данным: карточка появляется в ленте,
 // но модель не вызывается.
-func (i *Ingestor) StoreWithoutAnalysis(connection *sqlite.Connection, incoming Incoming) (*sqlite.Message, error) {
+func (i *Ingestor) StoreWithoutAnalysis(connection *postgres.Connection, incoming Incoming) (*postgres.Message, error) {
 	return i.store(connection, incoming, false)
 }
 
-func (i *Ingestor) store(connection *sqlite.Connection, incoming Incoming, analyze bool) (*sqlite.Message, error) {
+func (i *Ingestor) store(connection *postgres.Connection, incoming Incoming, analyze bool) (*postgres.Message, error) {
 	_, err := i.DB.MessageByExternalID(connection.ID, incoming.ExternalID)
 	if err == nil {
 		return nil, nil
@@ -56,7 +56,7 @@ func (i *Ingestor) store(connection *sqlite.Connection, incoming Incoming, analy
 		return nil, err
 	}
 
-	message := &sqlite.Message{
+	message := &postgres.Message{
 		ConnectionID: connection.ID,
 		ExternalID:   incoming.ExternalID,
 		SenderName:   incoming.SenderName,

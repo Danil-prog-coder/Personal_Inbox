@@ -1,28 +1,24 @@
 package scheduler
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 
 	"personalinbox/internal/events"
 	"personalinbox/internal/gmail"
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/services/ingest"
-	"personalinbox/internal/sqlite"
 	"personalinbox/internal/telegram"
+	"personalinbox/internal/testenv"
 )
 
 type fakeQueue struct{ ids []int64 }
 
 func (q *fakeQueue) Enqueue(id int64) { q.ids = append(q.ids, id) }
 
-func newScheduler(t *testing.T) (*Scheduler, *sqlite.DB, *sqlite.User) {
+func newScheduler(t *testing.T) (*Scheduler, *postgres.DB, *postgres.User) {
 	t.Helper()
-	db, err := sqlite.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { db.Close() })
+	db := testenv.DB(t)
 	user, err := db.CreateUser("max@northline.io", "хеш", "")
 	if err != nil {
 		t.Fatal(err)
@@ -32,7 +28,7 @@ func newScheduler(t *testing.T) (*Scheduler, *sqlite.DB, *sqlite.User) {
 	return New(ingestor, &gmail.Client{}, &telegram.Client{BaseURL: "http://127.0.0.1:1"}), db, user
 }
 
-func connect(t *testing.T, db *sqlite.DB, user *sqlite.User, kind, state string) {
+func connect(t *testing.T, db *postgres.DB, user *postgres.User, kind, state string) {
 	t.Helper()
 	connection, err := db.GetOrCreateConnection(user.ID, kind)
 	if err != nil {

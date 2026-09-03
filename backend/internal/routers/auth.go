@@ -6,6 +6,7 @@ import (
 	"personalinbox/internal/exceptions"
 	"strings"
 
+	"personalinbox/internal/redis"
 	"personalinbox/internal/schemas"
 	"personalinbox/internal/utils/security"
 )
@@ -63,7 +64,9 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "Не удалось создать пользователя")
 		return
 	}
-	s.setSession(w, session{UserID: user.ID})
+	if !s.startSession(w, r, redis.Session{UserID: user.ID}) {
+		return
+	}
 	respond(w, http.StatusCreated, schemas.UserOut(user))
 }
 
@@ -79,11 +82,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusUnauthorized, "Неверный email или пароль")
 		return
 	}
-	s.setSession(w, session{UserID: user.ID})
+	if !s.startSession(w, r, redis.Session{UserID: user.ID}) {
+		return
+	}
 	respond(w, http.StatusOK, schemas.UserOut(user))
 }
 
-func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request) {
-	s.clearSession(w)
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	s.clearSession(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }

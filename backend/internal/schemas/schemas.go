@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"personalinbox/internal/sqlite"
+	"personalinbox/internal/postgres"
 )
 
 // Time — время в ответе API: ISO без зоны, как отдавал прежний бэкенд.
@@ -129,7 +129,7 @@ type MeUpdateResult struct {
 }
 
 // UserOut собирает профиль для ответа.
-func UserOut(user *sqlite.User) User {
+func UserOut(user *postgres.User) User {
 	return User{
 		ID:        user.ID,
 		Email:     user.Email,
@@ -141,7 +141,7 @@ func UserOut(user *sqlite.User) User {
 }
 
 // ConnectionOut собирает строку источника.
-func ConnectionOut(connection *sqlite.Connection) Connection {
+func ConnectionOut(connection *postgres.Connection) Connection {
 	return Connection{
 		Kind:       connection.Kind,
 		State:      connection.State,
@@ -152,7 +152,7 @@ func ConnectionOut(connection *sqlite.Connection) Connection {
 
 // MessageOut собирает сообщение. Уровень наружу отдаётся эффективный:
 // ручное исправление важнее оценки модели.
-func MessageOut(message *sqlite.Message) Message {
+func MessageOut(message *postgres.Message) Message {
 	var override *string
 	if message.LevelOverride != "" {
 		value := message.LevelOverride
@@ -183,7 +183,7 @@ func MessageOut(message *sqlite.Message) Message {
 }
 
 // MessageBriefOut собирает короткую строку сообщения.
-func MessageBriefOut(message *sqlite.Message) MessageBrief {
+func MessageBriefOut(message *postgres.Message) MessageBrief {
 	return MessageBrief{
 		ID:         message.ID,
 		SenderName: message.SenderName,

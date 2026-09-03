@@ -1,4 +1,4 @@
-// Package api — HTTP-слой: маршруты, разбор запросов, ответы.
+// Package routers — HTTP-слой: маршруты, разбор запросов, ответы.
 // Контракт зафиксирован в docs/03-data-model.md, п. 6.
 package routers
 
@@ -10,16 +10,18 @@ import (
 	"personalinbox/internal/core"
 	"personalinbox/internal/events"
 	"personalinbox/internal/gmail"
+	"personalinbox/internal/postgres"
+	"personalinbox/internal/redis"
 	"personalinbox/internal/services/analysis"
 	"personalinbox/internal/services/ingest"
-	"personalinbox/internal/sqlite"
 	"personalinbox/internal/telegram"
 )
 
 // Server — всё, что нужно ручкам.
 type Server struct {
 	cfg      core.Config
-	db       *sqlite.DB
+	db       *postgres.DB
+	cache    *redis.Client
 	bus      *events.Bus
 	ingestor *ingest.Ingestor
 	enqueuer analysis.Enqueuer
@@ -30,7 +32,8 @@ type Server struct {
 // New собирает сервер.
 func New(
 	cfg core.Config,
-	db *sqlite.DB,
+	db *postgres.DB,
+	cache *redis.Client,
 	bus *events.Bus,
 	ingestor *ingest.Ingestor,
 	enqueuer analysis.Enqueuer,
@@ -40,6 +43,7 @@ func New(
 	return &Server{
 		cfg:      cfg,
 		db:       db,
+		cache:    cache,
 		bus:      bus,
 		ingestor: ingestor,
 		enqueuer: enqueuer,

@@ -1,21 +1,17 @@
 package seed
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"personalinbox/internal/sqlite"
+	"personalinbox/internal/postgres"
+	"personalinbox/internal/testenv"
 )
 
-func newDB(t *testing.T) *sqlite.DB {
+func newDB(t *testing.T) *postgres.DB {
 	t.Helper()
-	db, err := sqlite.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { db.Close() })
+	db := testenv.DB(t)
 	return db
 }
 
@@ -33,7 +29,7 @@ func TestReferenceSetIsComplete(t *testing.T) {
 		default:
 			t.Fatalf("неизвестный источник в демо-данных: %q", item.Src)
 		}
-		if !sqlite.Contains(sqlite.Levels, item.Level) {
+		if !postgres.Contains(postgres.Levels, item.Level) {
 			t.Fatalf("неизвестный уровень в демо-данных: %q", item.Level)
 		}
 	}

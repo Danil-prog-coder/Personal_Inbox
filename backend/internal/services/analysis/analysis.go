@@ -16,8 +16,8 @@ import (
 	"personalinbox/internal/core"
 	"personalinbox/internal/events"
 	"personalinbox/internal/openai"
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/schemas"
-	"personalinbox/internal/sqlite"
 )
 
 // Enqueuer — то, куда ручки складывают сообщения на оценку.
@@ -72,7 +72,7 @@ func (q *queue) close() {
 
 // Worker — рабочий поток оценки.
 type Worker struct {
-	db       *sqlite.DB
+	db       *postgres.DB
 	bus      *events.Bus
 	analyzer openai.Analyzer
 
@@ -87,7 +87,7 @@ type Worker struct {
 }
 
 // NewWorker собирает воркер поверх базы, шины событий и адаптера модели.
-func NewWorker(db *sqlite.DB, bus *events.Bus, analyzer openai.Analyzer) *Worker {
+func NewWorker(db *postgres.DB, bus *events.Bus, analyzer openai.Analyzer) *Worker {
 	return &Worker{
 		db:          db,
 		bus:         bus,
@@ -133,7 +133,7 @@ func (w *Worker) run() {
 }
 
 // BuildRequest собирает то, что уходит в модель об одном сообщении.
-func (w *Worker) BuildRequest(message *sqlite.Message) (openai.Request, error) {
+func (w *Worker) BuildRequest(message *postgres.Message) (openai.Request, error) {
 	connection, err := w.db.ConnectionByID(message.ConnectionID)
 	if err != nil {
 		return openai.Request{}, err
@@ -159,7 +159,7 @@ func (w *Worker) BuildRequest(message *sqlite.Message) (openai.Request, error) {
 
 // ProcessMessage оценивает одно сообщение. Три повтора с задержками 2с / 8с / 30с.
 // Отсутствующее сообщение — не ошибка: его могли удалить, пока оно ждало очереди.
-func (w *Worker) ProcessMessage(messageID int64) (*sqlite.Message, error) {
+func (w *Worker) ProcessMessage(messageID int64) (*postgres.Message, error) {
 	message, err := w.db.MessageByID(messageID)
 	if errors.Is(err, exceptions.ErrNotFound) {
 		return nil, nil
@@ -212,7 +212,7 @@ func (w *Worker) ProcessMessage(messageID int64) (*sqlite.Message, error) {
 		message.Summary = result.Summary
 		message.AnalysisFailed = false
 	}
-	now := sqlite.UTCNow()
+	now := postgres.UTCNow()
 	message.AnalyzedAt = &now
 	if err := w.db.SaveMessage(message); err != nil {
 		return nil, err
@@ -229,7 +229,7 @@ func (w *Worker) ProcessMessage(messageID int64) (*sqlite.Message, error) {
 // QueueReanalysis — смена критериев: все сообщения пользователя уходят
 // на переоценку. Ручные исправления (level_override) при этом не трогаем —
 // решение №15.
-func QueueReanalysis(db *sqlite.DB, enqueuer Enqueuer, userID int64) (int, error) {
+func QueueReanalysis(db *postgres.DB, enqueuer Enqueuer, userID int64) (int, error) {
 	ids, err := db.MarkAllProcessing(userID)
 	if err != nil {
 		return 0, err

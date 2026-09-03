@@ -3,9 +3,9 @@ package routers
 import (
 	"net/http"
 
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/schemas"
 	"personalinbox/internal/services/analysis"
-	"personalinbox/internal/sqlite"
 	"personalinbox/internal/utils/security"
 )
 
@@ -35,11 +35,11 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if payload.Theme != nil && !sqlite.Contains(sqlite.Themes, *payload.Theme) {
+	if payload.Theme != nil && !postgres.Contains(postgres.Themes, *payload.Theme) {
 		fail(w, http.StatusUnprocessableEntity, "Неизвестная тема")
 		return
 	}
-	if payload.Density != nil && !sqlite.Contains(sqlite.Densities, *payload.Density) {
+	if payload.Density != nil && !postgres.Contains(postgres.Densities, *payload.Density) {
 		fail(w, http.StatusUnprocessableEntity, "Неизвестная плотность")
 		return
 	}
@@ -87,6 +87,9 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 			fail(w, http.StatusInternalServerError, "Не удалось поставить переоценку")
 			return
 		}
+		// Все сообщения ушли в PROCESSING — фильтр «Обработано» и сводка
+		// в кэше больше не соответствуют базе.
+		s.cache.DropCache(r.Context(), user.ID)
 	}
 	respond(w, http.StatusOK, schemas.MeUpdateResult{
 		User:            schemas.UserOut(user),

@@ -1,4 +1,4 @@
-package sqlite
+package postgres
 
 import (
 	"database/sql"
@@ -17,11 +17,11 @@ const effectiveLevelSQL = `COALESCE(NULLIF(m.level_override, ''), NULLIF(m.level
 
 func scanMessage(row interface{ Scan(...any) error }) (*Message, error) {
 	var message Message
-	var receivedAt, analyzedAt dbTime
+	var analyzedAt sql.NullTime
 	var level, override sql.NullString
 	if err := row.Scan(&message.ID, &message.ConnectionID, &message.ExternalID,
 		&message.SenderName, &message.SenderAddr, &message.Subject, &message.Body,
-		&receivedAt, &message.IsRead, &message.Status, &level, &override,
+		&message.ReceivedAt, &message.IsRead, &message.Status, &level, &override,
 		&message.Category, &message.DeadlineText, &message.NeedsReply, &message.NeedsAction,
 		&message.Summary, &message.ExternalURL, &analyzedAt, &message.AnalysisFailed,
 		&message.Kind); err != nil {
@@ -30,10 +30,10 @@ func scanMessage(row interface{ Scan(...any) error }) (*Message, error) {
 		}
 		return nil, err
 	}
-	message.ReceivedAt = receivedAt.Time
+	message.ReceivedAt = message.ReceivedAt.UTC()
 	message.Level = stringFromNull(level)
 	message.LevelOverride = stringFromNull(override)
-	message.AnalyzedAt = analyzedAt.Ptr()
+	message.AnalyzedAt = nullTime(analyzedAt)
 	return &message, nil
 }
 
@@ -57,26 +57,17 @@ func (db *DB) queryMessages(query string, args ...any) ([]*Message, error) {
 
 // InsertMessage сохраняет сообщение и проставляет ему id.
 func (db *DB) InsertMessage(message *Message) error {
-	result, err := db.Exec(
+	return db.QueryRow(
 		`INSERT INTO message (connection_id, external_id, sender_name, sender_addr, subject,
 			body, received_at, is_read, status, level, level_override, category, deadline_text,
 			needs_reply, needs_action, summary, external_url, analyzed_at, analysis_failed)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 		message.ConnectionID, message.ExternalID, message.SenderName, message.SenderAddr,
-		message.Subject, message.Body, ToDBTime(message.ReceivedAt), message.IsRead,
+		message.Subject, message.Body, message.ReceivedAt.UTC(), message.IsRead,
 		message.Status, nullString(message.Level), nullString(message.LevelOverride),
 		message.Category, message.DeadlineText, message.NeedsReply, message.NeedsAction,
-		message.Summary, message.ExternalURL, ToDBTimePtr(message.AnalyzedAt),
-		message.AnalysisFailed)
-	if err != nil {
-		return err
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
-	message.ID = id
-	return nil
+		message.Summary, message.ExternalURL, timePtr(message.AnalyzedAt),
+		message.AnalysisFailed).Scan(&message.ID)
 }
 
 // SaveMessage обновляет всё, что может меняться после приёма: оценку, статус,
@@ -90,7 +81,7 @@ func (db *DB) SaveMessage(message *Message) error {
 		message.IsRead, message.Status, nullString(message.Level),
 		nullString(message.LevelOverride), message.Category, message.DeadlineText,
 		message.NeedsReply, message.NeedsAction, message.Summary,
-		ToDBTimePtr(message.AnalyzedAt), message.AnalysisFailed, message.ID)
+		timePtr(message.AnalyzedAt), message.AnalysisFailed, message.ID)
 	return err
 }
 
@@ -162,7 +153,7 @@ func (db *DB) AddOverrideLog(messageID int64, from, to string) error {
 	_, err := db.Exec(
 		`INSERT INTO override_log (message_id, from_level, to_level, created_at)
 		 VALUES (?, ?, ?, ?)`,
-		messageID, nullString(from), to, ToDBTime(UTCNow()))
+		messageID, nullString(from), to, UTCNow())
 	return err
 }
 

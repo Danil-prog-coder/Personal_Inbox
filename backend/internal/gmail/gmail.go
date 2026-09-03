@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"personalinbox/internal/core"
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/services/ingest"
-	"personalinbox/internal/sqlite"
 )
 
 const (
@@ -322,7 +322,7 @@ func receivedAt(raw rawMessage) time.Time {
 			return parsed.UTC()
 		}
 	}
-	return sqlite.UTCNow()
+	return postgres.UTCNow()
 }
 
 // ToIncoming переводит письмо Gmail в общий формат приёма.
@@ -389,7 +389,7 @@ func isStaleHistory(err error) bool {
 }
 
 // Sync синхронизирует одно подключение. Возвращает число новых сообщений.
-func (c *Client) Sync(ingestor *ingest.Ingestor, connection *sqlite.Connection) (int, error) {
+func (c *Client) Sync(ingestor *ingest.Ingestor, connection *postgres.Connection) (int, error) {
 	var credentials struct {
 		RefreshToken string `json:"refresh_token"`
 	}
@@ -413,7 +413,7 @@ func (c *Client) Sync(ingestor *ingest.Ingestor, connection *sqlite.Connection) 
 	return saved, nil
 }
 
-func (c *Client) sync(ingestor *ingest.Ingestor, connection *sqlite.Connection, refreshToken string) (int, error) {
+func (c *Client) sync(ingestor *ingest.Ingestor, connection *postgres.Connection, refreshToken string) (int, error) {
 	accessToken, err := c.accessToken(refreshToken)
 	if err != nil {
 		return 0, err
@@ -448,7 +448,7 @@ func (c *Client) sync(ingestor *ingest.Ingestor, connection *sqlite.Connection, 
 	if cursor != "" {
 		connection.SyncCursor = cursor
 	}
-	now := sqlite.UTCNow()
+	now := postgres.UTCNow()
 	connection.LastSyncAt = &now
 	connection.State = "active"
 	return saved, ingestor.DB.SaveConnection(connection)

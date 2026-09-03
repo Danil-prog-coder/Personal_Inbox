@@ -2,6 +2,7 @@ package routers
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 
 	"personalinbox/internal/schemas"
@@ -130,22 +131,72 @@ func TestMeRequiresAuth(t *testing.T) {
 
 func TestForgedCookieIsRejected(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
-	// Подделка содержимого cookie ломает подпись, сессия перестаёт работать.
-	forged := (&Server{cfg: e.serverConfig("другой-секрет")}).encodeSession(session{UserID: user.ID})
+	e.authorized()
+	// Сессия живёт на сервере, поэтому придуманный токен не открывает ничего:
+	// подобрать его нельзя, а вывести из чужого — тем более.
+	for _, forged := range []string{
+		"выдуманный-токен",
+		"",
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+	} {
+		request, err := http.NewRequest(http.MethodGet, e.server.URL+"/api/me", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.AddCookie(&http.Cookie{Name: "pi_session", Value: forged})
+		response, err := (&http.Client{}).Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		if response.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("чужой токен %q принят: %d", forged, response.StatusCode)
+		}
+	}
+}
+
+// TestLogoutKillsSessionOnServer: старая подписанная cookie гасла только
+// в браузере. Теперь выход убивает сессию на сервере — украденная cookie
+// после выхода бесполезна.
+func TestLogoutKillsSessionOnServer(t *testing.T) {
+	e := newEnv(t)
+	e.authorized()
+
+	var stolen string
+	for _, cookie := range e.client.Jar.Cookies(mustURL(t, e.server.URL)) {
+		if cookie.Name == "pi_session" {
+			stolen = cookie.Value
+		}
+	}
+	if stolen == "" {
+		t.Fatal("сессионная cookie не выдана")
+	}
+	if status, _ := e.do(http.MethodPost, "/api/auth/logout", nil); status != http.StatusNoContent {
+		t.Fatalf("выход вернул %d", status)
+	}
+
 	request, err := http.NewRequest(http.MethodGet, e.server.URL+"/api/me", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	request.AddCookie(&http.Cookie{Name: "pi_session", Value: forged})
+	request.AddCookie(&http.Cookie{Name: "pi_session", Value: stolen})
 	response, err := (&http.Client{}).Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("cookie с чужой подписью принята: %d", response.StatusCode)
+		t.Fatalf("cookie работает после выхода: %d", response.StatusCode)
 	}
+}
+
+func mustURL(t *testing.T, raw string) *url.URL {
+	t.Helper()
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return parsed
 }
 
 func TestHealthIsPublic(t *testing.T) {

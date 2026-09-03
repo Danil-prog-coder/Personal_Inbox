@@ -9,8 +9,8 @@ import (
 
 	"personalinbox/internal/core"
 	"personalinbox/internal/gmail"
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/services/ingest"
-	"personalinbox/internal/sqlite"
 	"personalinbox/internal/telegram"
 )
 
@@ -56,7 +56,7 @@ func (s *Scheduler) SyncAll() int {
 	return saved
 }
 
-func (s *Scheduler) syncOne(connection *sqlite.Connection) (int, error) {
+func (s *Scheduler) syncOne(connection *postgres.Connection) (int, error) {
 	switch connection.Kind {
 	case "gmail":
 		return s.gmail.Sync(s.ingestor, connection)

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"personalinbox/internal/core"
-	"personalinbox/internal/sqlite"
+	"personalinbox/internal/postgres"
 )
 
 // Request — всё, что уходит в модель об одном сообщении.
@@ -23,7 +23,7 @@ type Request struct {
 	Subject   string
 	Body      string
 	Source    string
-	Overrides []sqlite.Override
+	Overrides []postgres.Override
 }
 
 // Result — строгий JSON от модели, разобранный в структуру.
@@ -63,7 +63,7 @@ func responseSchema() map[string]any {
 			"level", "category", "deadline", "needs_reply", "needs_action", "summary",
 		},
 		"properties": map[string]any{
-			"level":        map[string]any{"type": "string", "enum": sqlite.Levels},
+			"level":        map[string]any{"type": "string", "enum": postgres.Levels},
 			"category":     map[string]any{"type": "string"},
 			"deadline":     map[string]any{"type": "string"},
 			"needs_reply":  map[string]any{"type": "boolean"},
@@ -206,7 +206,7 @@ func ParseResponse(raw string) (Result, error) {
 	}
 
 	level, _ := data["level"].(string)
-	if !sqlite.Contains(sqlite.Levels, level) {
+	if !postgres.Contains(postgres.Levels, level) {
 		return Result{}, fmt.Errorf("%w: неизвестный уровень: %v", exceptions.ErrModelUnavailable, data["level"])
 	}
 	text := map[string]string{}

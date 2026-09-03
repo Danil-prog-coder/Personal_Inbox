@@ -9,8 +9,8 @@ import (
 
 	"personalinbox/internal/core"
 	"personalinbox/internal/events"
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/services/seed"
-	"personalinbox/internal/sqlite"
 	"personalinbox/internal/utils/security"
 )
 
@@ -19,7 +19,7 @@ func main() {
 	flag.Parse()
 
 	cfg := core.Load()
-	db, err := sqlite.Open(cfg.DatabasePath)
+	db, err := postgres.Open(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("база данных: %v", err)
 	}

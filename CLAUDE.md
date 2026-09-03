@@ -71,15 +71,16 @@
 ## Стек
 
 React 18 + TypeScript + Vite · обычный CSS на переменных · `react-router-dom`
-**Go 1.24 + `net/http`** · SQLite через `database/sql` и `modernc.org/sqlite`
-обычный SQL в `internal/sqlite` · миграции — свои `.sql` через `embed`
+**Go 1.24 + `net/http`** · PostgreSQL 16 через `database/sql` и `pgx`
+обычный SQL в `internal/postgres` · миграции — свои `.sql` через `embed`
+Redis 7 через `go-redis` — серверные сессии и кэш сводки/источников
 фоновые задачи — горутина с `time.Ticker` в том же процессе
 OpenAI через адаптер `backend/internal/openai/provider.go` · Gmail REST · Telegram Bot API
 `go test` (бэк) · `vitest` (фронт)
-`docker compose up --build` — весь стек: бэкенд + nginx (статика фронта и прокси `/api`)
+`docker compose up --build` — весь стек: postgres + redis + бэкенд + nginx
 
-Зависимостей у бэкенда две: драйвер SQLite и `bcrypt`. Веб-фреймворк, ORM, логгер
-и SDK провайдеров не подключаем — всё закрывается стандартной библиотекой.
+Зависимости бэкенда: драйверы Postgres и Redis плюс `bcrypt`. Веб-фреймворк, ORM,
+логгер и SDK провайдеров не подключаем — остальное закрывает стандартная библиотека.
 
 Структура бэкенда:
 ```
@@ -88,7 +89,8 @@ backend/
   internal/core       настройки            internal/exceptions  сквозные ошибки
   internal/routers    маршруты и ручки, session.go — подписанная cookie
   internal/schemas    схемы ответов        internal/events      шина событий для SSE
-  internal/sqlite     база: модели, SQL, миграции, фильтры ленты
+  internal/postgres   база: модели, SQL, миграции, фильтры ленты
+  internal/redis      сессии и кэш
   internal/openai     адаптер модели       internal/gmail  ·  internal/telegram
   internal/services   analysis · ingest · scheduler · seed
   internal/utils      security — пароли

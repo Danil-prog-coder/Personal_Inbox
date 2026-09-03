@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/services/ingest"
-	"personalinbox/internal/sqlite"
 )
 
 const defaultBaseURL = "https://api.telegram.org"
@@ -173,7 +173,7 @@ func externalURL(source chat, messageID int64) string {
 }
 
 // Sync забирает новые сообщения. Возвращает число сохранённых.
-func (c *Client) Sync(ingestor *ingest.Ingestor, connection *sqlite.Connection) (int, error) {
+func (c *Client) Sync(ingestor *ingest.Ingestor, connection *postgres.Connection) (int, error) {
 	var credentials struct {
 		BotToken string `json:"bot_token"`
 	}
@@ -249,7 +249,7 @@ func (c *Client) Sync(ingestor *ingest.Ingestor, connection *sqlite.Connection) 
 	if lastUpdateID != nil {
 		connection.SyncCursor = strconv.FormatInt(*lastUpdateID, 10)
 	}
-	now := sqlite.UTCNow()
+	now := postgres.UTCNow()
 	connection.LastSyncAt = &now
 	connection.State = "active"
 	return saved, ingestor.DB.SaveConnection(connection)

@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"personalinbox/internal/events"
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/services/ingest"
-	"personalinbox/internal/sqlite"
+	"personalinbox/internal/testenv"
 )
 
 type fakeQueue struct{ ids []int64 }
@@ -47,13 +47,9 @@ func botAPI(t *testing.T, handlers map[string]func(request map[string]any) (any,
 	return &Client{BaseURL: server.URL, HTTP: server.Client()}, &calls
 }
 
-func newIngestor(t *testing.T) (*ingest.Ingestor, *sqlite.Connection) {
+func newIngestor(t *testing.T) (*ingest.Ingestor, *postgres.Connection) {
 	t.Helper()
-	db, err := sqlite.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { db.Close() })
+	db := testenv.DB(t)
 	user, err := db.CreateUser("max@northline.io", "хеш", "")
 	if err != nil {
 		t.Fatal(err)

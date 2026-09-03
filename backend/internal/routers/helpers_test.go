@@ -2,26 +2,28 @@ package routers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"personalinbox/internal/core"
 	"personalinbox/internal/events"
 	"personalinbox/internal/gmail"
+	"personalinbox/internal/postgres"
+	"personalinbox/internal/redis"
 	"personalinbox/internal/services/ingest"
-	"personalinbox/internal/sqlite"
 	"personalinbox/internal/telegram"
+	"personalinbox/internal/testenv"
 	"personalinbox/internal/utils/security"
 )
 
 // messageModel — короткое имя для правок сообщения в тестах.
-type messageModel = sqlite.Message
+type messageModel = postgres.Message
 
 // fakeQueue заменяет рабочий поток оценки: ручкам важно, что сообщение
 // поставлено в очередь, а не то, что ответила модель.
@@ -33,7 +35,8 @@ type env struct {
 	t        *testing.T
 	server   *httptest.Server
 	client   *http.Client
-	db       *sqlite.DB
+	db       *postgres.DB
+	cache    *redis.Client
 	bus      *events.Bus
 	queue    *fakeQueue
 	gmail    *gmail.Client
@@ -45,24 +48,20 @@ const testPassword = "qwerty12345"
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
-	db, err := sqlite.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatalf("база: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
+	db := testenv.DB(t)
+	cache := testenv.Cache(t)
 
-	cfg := core.Config{
-		SessionSecret:  "тестовый-секрет",
-		FrontendOrigin: "http://localhost:5173",
-	}
+	cfg := core.Config{FrontendOrigin: "http://localhost:5173"}
 	bus := events.New(50)
+	// Тот же сброс кэша, что и в бою: иначе тесты проверяли бы не то поведение.
+	bus.OnPublish(func(userID int64) { cache.DropCache(context.Background(), userID) })
 	queue := &fakeQueue{}
 	ingestor := ingest.New(db, bus, queue)
 	gmailClient := &gmail.Client{}
 	telegramClient := telegram.NewClient()
 
 	server := httptest.NewServer(
-		New(cfg, db, bus, ingestor, queue, gmailClient, telegramClient).Handler())
+		New(cfg, db, cache, bus, ingestor, queue, gmailClient, telegramClient).Handler())
 	t.Cleanup(server.Close)
 
 	jar, err := cookiejar.New(nil)
@@ -70,7 +69,7 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	return &env{
-		t: t, server: server, db: db, bus: bus, queue: queue,
+		t: t, server: server, db: db, cache: cache, bus: bus, queue: queue,
 		gmail: gmailClient, telegram: telegramClient,
 		client: &http.Client{Jar: jar, Timeout: 10 * time.Second,
 			// Редирект после OAuth проверяем сами, а не следуем за ним.
@@ -128,13 +127,8 @@ func (e *env) detail(raw []byte) string {
 	return payload.Detail
 }
 
-// serverConfig — настройки с другим секретом: нужны проверке подписи cookie.
-func (e *env) serverConfig(secret string) core.Config {
-	return core.Config{SessionSecret: secret, FrontendOrigin: "http://localhost:5173"}
-}
-
 // user создаёт пользователя прямо в базе, минуя регистрацию.
-func (e *env) user(email string) *sqlite.User {
+func (e *env) user(email string) *postgres.User {
 	e.t.Helper()
 	hash, err := security.HashPassword(testPassword)
 	if err != nil {
@@ -158,20 +152,20 @@ func (e *env) login(email string) {
 }
 
 // authorized создаёт пользователя и сразу входит под ним.
-func (e *env) authorized() *sqlite.User {
+func (e *env) authorized() *postgres.User {
 	e.t.Helper()
 	user := e.user("max@northline.io")
 	e.login(user.Email)
 	return user
 }
 
-func (e *env) connection(user *sqlite.User, kind, state string) *sqlite.Connection {
+func (e *env) connection(user *postgres.User, kind, state string) *postgres.Connection {
 	e.t.Helper()
 	connection, err := e.db.GetOrCreateConnection(user.ID, kind)
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	now := sqlite.UTCNow()
+	now := postgres.UTCNow()
 	connection.State = state
 	connection.Account = map[string]string{"gmail": "me@northline.io", "telegram": "@maxorlov"}[kind]
 	connection.Credentials = `{"bot_token": "123:abc"}`
@@ -183,17 +177,17 @@ func (e *env) connection(user *sqlite.User, kind, state string) *sqlite.Connecti
 }
 
 // message создаёт сообщение с разумными значениями по умолчанию.
-func (e *env) message(connection *sqlite.Connection, apply func(*sqlite.Message)) *sqlite.Message {
+func (e *env) message(connection *postgres.Connection, apply func(*postgres.Message)) *postgres.Message {
 	e.t.Helper()
 	e.counter++
-	message := &sqlite.Message{
+	message := &postgres.Message{
 		ConnectionID: connection.ID,
 		ExternalID:   "ext-" + time.Now().Format("150405.000000000"),
 		SenderName:   "Анна Ковалёва",
 		SenderAddr:   "a.kovaleva@northline.io",
 		Subject:      "Договор Northline",
 		Body:         "Нужны правки по пунктам 4.2 и 7",
-		ReceivedAt:   sqlite.UTCNow().Add(-time.Duration(e.counter) * time.Minute),
+		ReceivedAt:   postgres.UTCNow().Add(-time.Duration(e.counter) * time.Minute),
 		Status:       "DONE",
 		Level:        "NORMAL",
 		Category:     "Работа",

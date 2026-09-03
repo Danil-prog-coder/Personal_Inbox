@@ -3,8 +3,8 @@ package routers
 import (
 	"net/http"
 
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/schemas"
-	"personalinbox/internal/sqlite"
 )
 
 // handleListSources — лента уровня 1. Отключённые источники не показываются
@@ -14,6 +14,14 @@ func (s *Server) handleListSources(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Счётчики источников считаются по всем сообщениям каждого подключения —
+	// самый дорогой запрос на экране, который открывается первым.
+	var cached []schemas.SourceCard
+	if s.cache.GetCached(r.Context(), user.ID, "sources", &cached) {
+		respond(w, http.StatusOK, cached)
+		return
+	}
+
 	connections, err := s.db.VisibleConnectionsOf(user.ID)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "Не удалось получить источники")
@@ -40,15 +48,16 @@ func (s *Server) handleListSources(w http.ResponseWriter, r *http.Request) {
 			LastSyncAt:   schemas.TimePtr(connection.LastSyncAt),
 			Total:        len(messages),
 			Unread:       unread,
-			Distribution: sqlite.Distribution(messages),
+			Distribution: postgres.Distribution(messages),
 			Urgent:       urgent(messages),
 		})
 	}
+	s.cache.SetCached(r.Context(), user.ID, "sources", cards)
 	respond(w, http.StatusOK, cards)
 }
 
 // urgent — самое срочное сообщение источника: сначала CRITICAL, потом HIGH.
-func urgent(messages []*sqlite.Message) *schemas.MessageBrief {
+func urgent(messages []*postgres.Message) *schemas.MessageBrief {
 	for _, level := range []string{"CRITICAL", "HIGH"} {
 		for _, message := range messages {
 			if message.EffectiveLevel() == level {

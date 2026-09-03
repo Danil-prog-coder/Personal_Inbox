@@ -15,12 +15,13 @@ import (
 	"personalinbox/internal/events"
 	"personalinbox/internal/gmail"
 	"personalinbox/internal/openai"
+	"personalinbox/internal/postgres"
+	"personalinbox/internal/redis"
 	"personalinbox/internal/routers"
 	"personalinbox/internal/services/analysis"
 	"personalinbox/internal/services/ingest"
 	"personalinbox/internal/services/scheduler"
 	"personalinbox/internal/services/seed"
-	"personalinbox/internal/sqlite"
 	"personalinbox/internal/telegram"
 	"personalinbox/internal/utils/security"
 )
@@ -29,13 +30,22 @@ func main() {
 	log.SetFlags(log.LstdFlags)
 	cfg := core.Load()
 
-	db, err := sqlite.Open(cfg.DatabasePath)
+	db, err := postgres.Open(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("база данных: %v", err)
 	}
 	defer db.Close()
 
+	// Redis обязателен: в нём живут сессии, без него нельзя войти.
+	cache, err := redis.Open(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("redis: %v", err)
+	}
+	defer cache.Close()
+
 	bus := events.New(200)
+	// Любое изменение ленты проходит через шину — на нём и сбрасываем кэш.
+	bus.OnPublish(func(userID int64) { cache.DropCache(context.Background(), userID) })
 	worker := analysis.NewWorker(db, bus, openai.NewOpenAI(cfg))
 	ingestor := ingest.New(db, bus, worker)
 	gmailClient := gmail.NewClient(cfg)
@@ -62,7 +72,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: routers.New(cfg, db, bus, ingestor, worker, gmailClient, telegramClient).Handler(),
+		Handler: routers.New(cfg, db, cache, bus, ingestor, worker, gmailClient, telegramClient).Handler(),
 		// Поток SSE живёт долго, поэтому таймаута на запись нет намеренно.
 		ReadHeaderTimeout: 10 * time.Second,
 	}

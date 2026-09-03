@@ -6,8 +6,8 @@ import (
 	"personalinbox/internal/exceptions"
 	"strconv"
 
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/schemas"
-	"personalinbox/internal/sqlite"
 )
 
 // param читает значение из строки запроса и проверяет его по списку
@@ -17,7 +17,7 @@ func param(w http.ResponseWriter, r *http.Request, name, fallback string, allowe
 	if value == "" {
 		return fallback, true
 	}
-	if !sqlite.Contains(allowed, value) {
+	if !postgres.Contains(allowed, value) {
 		fail(w, http.StatusUnprocessableEntity, "Недопустимое значение фильтра «"+name+"»")
 		return "", false
 	}
@@ -26,7 +26,7 @@ func param(w http.ResponseWriter, r *http.Request, name, fallback string, allowe
 
 // ownedMessage — сообщение пользователя. Чужое сообщение — 404, а не 403:
 // о его существовании знать незачем.
-func (s *Server) ownedMessage(w http.ResponseWriter, r *http.Request, user *sqlite.User) (*sqlite.Message, bool) {
+func (s *Server) ownedMessage(w http.ResponseWriter, r *http.Request, user *postgres.User) (*postgres.Message, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		fail(w, http.StatusNotFound, "Сообщение не найдено")
@@ -55,7 +55,7 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source, ok := param(w, r, "source", "", sqlite.SourceKinds)
+	source, ok := param(w, r, "source", "", postgres.SourceKinds)
 	if !ok {
 		return
 	}
@@ -91,7 +91,7 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 		tzOffset = parsed
 	}
 
-	messages, err := s.db.FilteredMessages(user.ID, sqlite.Filter{
+	messages, err := s.db.FilteredMessages(user.ID, postgres.Filter{
 		Source:   source,
 		Level:    level,
 		Status:   status,
@@ -150,6 +150,9 @@ func (s *Server) handleMarkRead(w http.ResponseWriter, r *http.Request) {
 			fail(w, http.StatusInternalServerError, "Не удалось сохранить сообщение")
 			return
 		}
+		// Событие в шину не уходит (карточка не перерисовывается), а счётчик
+		// непрочитанных в кэше источников уже неверный — сбрасываем руками.
+		s.cache.DropCache(r.Context(), user.ID)
 	}
 	respond(w, http.StatusOK, schemas.MessageOut(message))
 }
@@ -170,7 +173,7 @@ func (s *Server) handleSetLevel(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &payload) {
 		return
 	}
-	if !sqlite.Contains(sqlite.Levels, payload.Level) {
+	if !postgres.Contains(postgres.Levels, payload.Level) {
 		fail(w, http.StatusUnprocessableEntity, "Неизвестный уровень важности")
 		return
 	}

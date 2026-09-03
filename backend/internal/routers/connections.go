@@ -9,8 +9,9 @@ import (
 	"personalinbox/internal/exceptions"
 	"strings"
 
+	"personalinbox/internal/postgres"
+	"personalinbox/internal/redis"
 	"personalinbox/internal/schemas"
-	"personalinbox/internal/sqlite"
 )
 
 // randomState — одноразовое значение state для OAuth: защита от подмены ответа.
@@ -34,13 +35,13 @@ func (s *Server) handleListConnections(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "Не удалось получить источники")
 		return
 	}
-	byKind := map[string]*sqlite.Connection{}
+	byKind := map[string]*postgres.Connection{}
 	for _, connection := range existing {
 		byKind[connection.Kind] = connection
 	}
 
-	result := make([]schemas.Connection, 0, len(sqlite.SourceKinds))
-	for _, kind := range sqlite.SourceKinds {
+	result := make([]schemas.Connection, 0, len(postgres.SourceKinds))
+	for _, kind := range postgres.SourceKinds {
 		if connection, ok := byKind[kind]; ok {
 			result = append(result, schemas.ConnectionOut(connection))
 			continue
@@ -61,7 +62,12 @@ func (s *Server) handleGmailStart(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
-	s.setSession(w, session{UserID: user.ID, OAuthState: state})
+	// state кладётся в уже существующую сессию: токен и вход не меняются.
+	_, token := s.session(r)
+	if err := s.saveSession(r, token, redis.Session{UserID: user.ID, OAuthState: state}); err != nil {
+		fail(w, http.StatusServiceUnavailable, "Хранилище сессий недоступно")
+		return
+	}
 	respond(w, http.StatusOK, map[string]string{"auth_url": authURL})
 }
 
@@ -70,11 +76,15 @@ func (s *Server) handleGmailCallback(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	expected := s.decodeSession(r).OAuthState
+	value, token := s.session(r)
+	expected := value.OAuthState
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
 	// state одноразовый: после проверки его в сессии больше нет.
-	s.setSession(w, session{UserID: user.ID})
+	if err := s.saveSession(r, token, redis.Session{UserID: user.ID}); err != nil {
+		fail(w, http.StatusServiceUnavailable, "Хранилище сессий недоступно")
+		return
+	}
 	if code == "" || state == "" || state != expected {
 		fail(w, http.StatusBadRequest, "Авторизация Google не подтверждена")
 		return
@@ -101,6 +111,8 @@ func (s *Server) handleGmailCallback(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "Не удалось сохранить подключение")
 		return
 	}
+	// Состав источников поменялся — карточки в кэше устарели.
+	s.cache.DropCache(r.Context(), user.ID)
 	http.Redirect(w, r, s.cfg.FrontendOrigin+"/connections?connected=gmail", http.StatusFound)
 }
 
@@ -135,7 +147,7 @@ func (s *Server) handleConnectTelegram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	credentials, _ := json.Marshal(map[string]string{"bot_token": token})
-	now := sqlite.UTCNow()
+	now := postgres.UTCNow()
 	connection.Account = botName
 	connection.Credentials = string(credentials)
 	connection.State = "active"
@@ -144,6 +156,7 @@ func (s *Server) handleConnectTelegram(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "Не удалось сохранить подключение")
 		return
 	}
+	s.cache.DropCache(r.Context(), user.ID)
 	respond(w, http.StatusOK, schemas.ConnectionOut(connection))
 }
 
@@ -155,7 +168,7 @@ func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	kind := r.PathValue("kind")
-	if !sqlite.Contains(sqlite.SourceKinds, kind) {
+	if !postgres.Contains(postgres.SourceKinds, kind) {
 		fail(w, http.StatusNotFound, "Неизвестный источник")
 		return
 	}
@@ -174,5 +187,6 @@ func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "Не удалось отключить источник")
 		return
 	}
+	s.cache.DropCache(r.Context(), user.ID)
 	w.WriteHeader(http.StatusNoContent)
 }

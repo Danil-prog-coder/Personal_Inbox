@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"personalinbox/internal/postgres"
 	"personalinbox/internal/schemas"
-	"personalinbox/internal/sqlite"
 )
 
 // topLimit — «Главное за период» показывает до 4 сообщений.
@@ -22,7 +22,16 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages, err := s.db.MessagesSince(user.ID, sqlite.SummaryPeriodStart(period, time.Time{}))
+	// Фронт дёргает сводку на каждом заходе во вкладку, а считается она по всем
+	// сообщениям за период. Кэш живёт 45 секунд и сбрасывается любой записью.
+	cacheName := "summary:" + period
+	var cached schemas.Summary
+	if s.cache.GetCached(r.Context(), user.ID, cacheName, &cached) {
+		respond(w, http.StatusOK, cached)
+		return
+	}
+
+	messages, err := s.db.MessagesSince(user.ID, postgres.SummaryPeriodStart(period, time.Time{}))
 	if err != nil {
 		fail(w, http.StatusInternalServerError, "Не удалось собрать сводку")
 		return
@@ -51,12 +60,14 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	respond(w, http.StatusOK, schemas.Summary{
+	summary := schemas.Summary{
 		Period:       period,
 		Total:        len(messages),
-		Distribution: sqlite.Distribution(messages),
+		Distribution: postgres.Distribution(messages),
 		NeedsReply:   needsReply,
 		NeedsAction:  needsAction,
 		Top:          top,
-	})
+	}
+	s.cache.SetCached(r.Context(), user.ID, cacheName, summary)
+	respond(w, http.StatusOK, summary)
 }
