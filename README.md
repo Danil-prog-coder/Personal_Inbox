@@ -32,18 +32,24 @@
 
 ## Запуск
 
+Нужен Go 1.24+ и Node 20+.
+
 ```bash
-make install        # виртуальное окружение и зависимости бэкенда
 cp .env.example .env  # ключи можно не заполнять: приложение поднимется и без них
-make migrate        # схема БД (Alembic)
 make seed           # 19 демо-сообщений из референса, вход demo@personal.inbox / demo12345
-make run            # http://localhost:8000, документация — /docs
+make run            # http://localhost:8000
 make test           # тесты бэкенда
+make lint           # go vet и gofmt
+make build          # bin/personal-inbox — один статический бинарник
 
 make front-install  # зависимости фронтенда
 make front          # http://localhost:5173, запросы к /api уходят на бэкенд
 make test-front     # тесты фронтенда
 ```
+
+Схема базы накатывается сама при старте, отдельная команда `make migrate` нужна,
+только чтобы сделать это без запуска сервера. Зависимости бэкенда скачиваются
+при первой сборке (`go mod download` вызывать вручную не нужно).
 
 Без `OPENAI_API_KEY` сообщения всё равно попадают в ленту, но получают пометку
 «Оценка недоступна» после трёх попыток вызова модели. Без ключей Google
@@ -52,24 +58,62 @@ make test-front     # тесты фронтенда
 `DEMO_LIVE=1 make run` доигрывает три «новых» сообщения из референса —
 на них видно появление карточек в реальном времени через SSE.
 
+## Граф проекта
+
+`graphify-out/` — граф всего проекта: узлы, связи, сообщества. Собирается
+локальным AST-разбором, без ключей и без обращений к модели.
+
+```bash
+graphify query "как сообщение попадает в ленту"   # связи по вопросу
+graphify path "Worker" "OpenAI"                    # путь между сущностями
+graphify explain "Ingestor"                        # окружение одного узла
+graphify affected "store.Message"                  # что сломается при правке
+make graph                                         # ручная пересборка
+```
+
+Обновляется сам: git-хуки `post-commit`, `post-merge` и `post-checkout`
+пересобирают граф в фоне, `git gpull` (`git pull && graphify update .`) —
+после подтягивания чужих изменений. В репозитории версионируются `graph.json`
+и `GRAPH_REPORT.md`; для `graph.json` зарегистрирован merge-драйвер, поэтому
+конфликты в нём разрешаются объединением, а не руками.
+
+Установка на новой машине:
+
+```bash
+pip install "graphifyy[sql]"      # или uv tool install / pipx install
+graphify install --project --strict
+graphify hook install
+```
+
+Строгий режим означает, что ассистент обязан сходить в граф прежде, чем читать
+исходники вслепую (см. раздел «graphify» в `CLAUDE.md`).
+
 ## Структура
 
 ```
 backend/
-  main.py          точка входа FastAPI, middleware, роутеры
-  models.py        таблицы, schemas.py — контракты API
-  api/             ручки: auth, me, connections, sources, messages, summary, stream
-  llm/provider.py  адаптер модели: промпт, строгая схема ответа
-  analysis.py      очередь оценки, три повтора, фоновая переоценка
-  sources/         Gmail (OAuth + History API) и Telegram (Bot API)
-  ingest.py        приём сообщения: дедупликация, событие, очередь
-  scheduler.py     синхронизация раз в 5 минут
-  seed_data.py     демо-данные из референса
-  tests/           pytest
-frontend/          React 18 + TypeScript + Vite
+  cmd/server/         точка входа: маршруты, планировщик, корректная остановка
+  cmd/seed/           заливка демо-данных, флаг --live для очереди SSE
+  internal/api/       ручки: auth, me, connections, sources, messages, summary, stream
+                      session.go — подписанная cookie вместо JWT
+  internal/store/     модели, SQL, фильтры ленты, migrations/*.sql через embed
+  internal/llm/       адаптер модели: промпт, строгая схема ответа
+  internal/analysis/  очередь оценки, три повтора, фоновая переоценка
+  internal/ingest/    приём сообщения: дедупликация, событие, очередь
+  internal/sources/   gmail (OAuth + History API) и telegram (Bot API)
+  internal/scheduler/ синхронизация раз в 5 минут
+  internal/events/    шина событий для SSE
+  internal/view/      схемы ответов API
+  internal/seed/      демо-данные из референса
+frontend/             React 18 + TypeScript + Vite
 ```
+
+Тесты лежат рядом с кодом (`*_test.go`): внешние сервисы поднимаются как
+поддельные HTTP-серверы, база — временный файл на каждый тест.
 
 ## Статус
 
 ТЗ зафиксировано, открытых вопросов нет. Бэкенд и фронтенд написаны
-и покрыты тестами: `make test` (pytest) и `make test-front` (vitest).
+и покрыты тестами: `make test` (`go test`) и `make test-front` (vitest).
+Бэкенд переписан с Python/FastAPI на Go — контракт API при этом не изменился,
+фронтенд не правился (решение №35 в `docs/04-decisions.md`).

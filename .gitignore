@@ -1,9 +1,20 @@
-.venv/
-__pycache__/
-*.py[cod]
-.pytest_cache/
 .env
 *.db
+*.db-shm
+*.db-wal
+bin/
 node_modules/
 dist/
 .DS_Store
+
+# graphify: граф и отчёт версионируются, промежуточные артефакты — нет
+graphify-out/cache/
+graphify-out/memory/
+graphify-out/manifest.json
+graphify-out/graph.html
+graphify-out/.graphify_analysis.json
+graphify-out/.graphify_root
+graphify-out/.graphify_python
+# датированные бэкапы графа, которые graphify делает перед пересборкой
+graphify-out/20*/
+.claude/settings.json.graphify-bak

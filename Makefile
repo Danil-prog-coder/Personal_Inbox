@@ -1,28 +1,38 @@
-.PHONY: install run seed test test-front migrate front front-install
+.PHONY: migrate run seed test lint build front front-install test-front graph
 
-VENV ?= .venv
+GO ?= go
+BACKEND ?= backend
 
-install:
-	python3 -m venv $(VENV)
-	$(VENV)/bin/pip install -r backend/requirements.txt
-
+# Схема создаётся при старте сервера; отдельная команда нужна, только чтобы
+# накатить миграции без запуска приложения.
 migrate:
-	$(VENV)/bin/alembic upgrade head
-
-seed:
-	$(VENV)/bin/python -m backend.seed_data
+	cd $(BACKEND) && $(GO) run ./cmd/server -migrate-only
 
 run:
-	$(VENV)/bin/uvicorn backend.main:app --reload --port 8000
+	cd $(BACKEND) && $(GO) run ./cmd/server
+
+seed:
+	cd $(BACKEND) && $(GO) run ./cmd/seed
 
 test:
-	$(VENV)/bin/python -m pytest
+	cd $(BACKEND) && $(GO) test ./...
 
-test-front:
-	cd frontend && npm test
+lint:
+	cd $(BACKEND) && $(GO) vet ./... && gofmt -l .
+
+build:
+	cd $(BACKEND) && $(GO) build -o ../bin/personal-inbox ./cmd/server
 
 front-install:
 	cd frontend && npm install
 
 front:
 	cd frontend && npm run dev
+
+test-front:
+	cd frontend && npm test
+
+# Граф проекта: обычно обновляется git-хуками, цель нужна для ручной пересборки
+# после большого рефакторинга (только AST, без вызовов модели).
+graph:
+	graphify update .
