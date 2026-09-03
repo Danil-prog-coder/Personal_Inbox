@@ -15,4 +15,6 @@ graphify-out/graph.html
 graphify-out/.graphify_analysis.json
 graphify-out/.graphify_root
 graphify-out/.graphify_python
+# датированные бэкапы графа, которые graphify делает перед пересборкой
+graphify-out/20*/
 .claude/settings.json.graphify-bak
