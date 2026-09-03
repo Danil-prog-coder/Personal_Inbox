@@ -36,6 +36,11 @@
 
 Нужен Go 1.24+ и Node 20+.
 
+> `frontend/index.html` нельзя открыть двойным кликом с диска. Это SPA:
+> браузер запрещает ES-модули по `file://` (CORS), поэтому страница остаётся
+> пустой, а в консоли — 404 или `blocked by CORS policy`. Приложению нужен
+> http-сервер и живой бэкенд — команда ниже поднимает и то, и другое.
+
 ### Всё сразу, в контейнерах
 
 ```bash
@@ -117,17 +122,22 @@ graphify hook install
 backend/
   cmd/server/         точка входа: маршруты, планировщик, корректная остановка
   cmd/seed/           заливка демо-данных, флаг --live для очереди SSE
-  internal/api/       ручки: auth, me, connections, sources, messages, summary, stream
-                      session.go — подписанная cookie вместо JWT
-  internal/store/     модели, SQL, фильтры ленты, migrations/*.sql через embed
-  internal/llm/       адаптер модели: промпт, строгая схема ответа
-  internal/analysis/  очередь оценки, три повтора, фоновая переоценка
-  internal/ingest/    приём сообщения: дедупликация, событие, очередь
-  internal/sources/   gmail (OAuth + History API) и telegram (Bot API)
-  internal/scheduler/ синхронизация раз в 5 минут
-  internal/events/    шина событий для SSE
-  internal/view/      схемы ответов API
-  internal/seed/      демо-данные из референса
+  internal/core/          настройки: окружение, .env, константы
+  internal/routers/       ручки: auth, me, connections, sources, messages, summary, stream
+                          session.go — подписанная cookie вместо JWT
+  internal/schemas/       схемы ответов API
+  internal/exceptions/    сквозные ошибки: не найдено, модель недоступна, сбой источника
+  internal/services/      бизнес-логика, по папке на задачу:
+    analysis/             очередь оценки, три повтора, фоновая переоценка
+    ingest/               приём сообщения: дедупликация, событие, очередь
+    scheduler/            синхронизация раз в 5 минут
+    seed/                 демо-данные из референса
+  internal/sqlite/        база: модели, SQL, фильтры ленты, migrations/*.sql через embed
+  internal/openai/        адаптер модели: промпт, строгая схема ответа
+  internal/gmail/         OAuth + History API
+  internal/telegram/      Bot API
+  internal/events/        шина событий для SSE
+  internal/utils/         вспомогательное: security/ — пароли (bcrypt)
 frontend/             React 18 + TypeScript + Vite
   nginx.conf          статика и прокси /api для контейнера
 docker-compose.yml    весь стек: backend + nginx

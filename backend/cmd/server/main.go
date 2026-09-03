@@ -11,32 +11,32 @@ import (
 	"syscall"
 	"time"
 
-	"personalinbox/internal/analysis"
-	"personalinbox/internal/api"
-	"personalinbox/internal/config"
+	"personalinbox/internal/core"
 	"personalinbox/internal/events"
-	"personalinbox/internal/ingest"
-	"personalinbox/internal/llm"
-	"personalinbox/internal/scheduler"
-	"personalinbox/internal/security"
-	"personalinbox/internal/seed"
-	"personalinbox/internal/sources/gmail"
-	"personalinbox/internal/sources/telegram"
-	"personalinbox/internal/store"
+	"personalinbox/internal/gmail"
+	"personalinbox/internal/openai"
+	"personalinbox/internal/routers"
+	"personalinbox/internal/services/analysis"
+	"personalinbox/internal/services/ingest"
+	"personalinbox/internal/services/scheduler"
+	"personalinbox/internal/services/seed"
+	"personalinbox/internal/sqlite"
+	"personalinbox/internal/telegram"
+	"personalinbox/internal/utils/security"
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags)
-	cfg := config.Load()
+	cfg := core.Load()
 
-	db, err := store.Open(cfg.DatabasePath)
+	db, err := sqlite.Open(cfg.DatabasePath)
 	if err != nil {
 		log.Fatalf("база данных: %v", err)
 	}
 	defer db.Close()
 
 	bus := events.New(200)
-	worker := analysis.NewWorker(db, bus, llm.NewOpenAI(cfg))
+	worker := analysis.NewWorker(db, bus, openai.NewOpenAI(cfg))
 	ingestor := ingest.New(db, bus, worker)
 	gmailClient := gmail.NewClient(cfg)
 	telegramClient := telegram.NewClient()
@@ -62,7 +62,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: api.New(cfg, db, bus, ingestor, worker, gmailClient, telegramClient).Handler(),
+		Handler: routers.New(cfg, db, bus, ingestor, worker, gmailClient, telegramClient).Handler(),
 		// Поток SSE живёт долго, поэтому таймаута на запись нет намеренно.
 		ReadHeaderTimeout: 10 * time.Second,
 	}

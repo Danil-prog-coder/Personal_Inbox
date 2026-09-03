@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  // Относительные пути к ассетам: собранный index.html открывается и с диска,
+  // и из любого каталога, а не только из корня сайта.
+  base: './',
   server: {
     port: 5173,
     host: true,

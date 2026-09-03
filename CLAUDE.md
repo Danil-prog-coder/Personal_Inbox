@@ -72,9 +72,9 @@
 
 React 18 + TypeScript + Vite · обычный CSS на переменных · `react-router-dom`
 **Go 1.24 + `net/http`** · SQLite через `database/sql` и `modernc.org/sqlite`
-обычный SQL в `internal/store` · миграции — свои `.sql` через `embed`
+обычный SQL в `internal/sqlite` · миграции — свои `.sql` через `embed`
 фоновые задачи — горутина с `time.Ticker` в том же процессе
-OpenAI через адаптер `backend/internal/llm/provider.go` · Gmail REST · Telegram Bot API
+OpenAI через адаптер `backend/internal/openai/provider.go` · Gmail REST · Telegram Bot API
 `go test` (бэк) · `vitest` (фронт)
 `docker compose up --build` — весь стек: бэкенд + nginx (статика фронта и прокси `/api`)
 
@@ -85,11 +85,13 @@ OpenAI через адаптер `backend/internal/llm/provider.go` · Gmail RES
 ```
 backend/
   cmd/server      точка входа, cmd/seed — демо-данные
-  internal/api    маршруты и ручки, session.go — подписанная cookie
-  internal/store  модели, SQL, миграции, фильтры ленты
-  internal/llm    адаптер модели      internal/analysis  очередь оценки
-  internal/ingest приём сообщений     internal/sources   gmail, telegram
-  internal/view   схемы ответов       internal/events    шина событий для SSE
+  internal/core       настройки            internal/exceptions  сквозные ошибки
+  internal/routers    маршруты и ручки, session.go — подписанная cookie
+  internal/schemas    схемы ответов        internal/events      шина событий для SSE
+  internal/sqlite     база: модели, SQL, миграции, фильтры ленты
+  internal/openai     адаптер модели       internal/gmail  ·  internal/telegram
+  internal/services   analysis · ingest · scheduler · seed
+  internal/utils      security — пароли
 ```
 
 Простота важнее правильности «по-взрослому»: это pet-проект.
