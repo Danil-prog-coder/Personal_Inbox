@@ -1812,7 +1812,15 @@ textarea:focus-visible {
   transform: translate(-50%, -50%);
   width: min(460px, 86%);
   border-radius: 28px;
-  animation: glassIn 0.34s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  /* Своя анимация, а не общая glassIn: та заканчивается на
+     `transform: none` и затирает центрирующий translate(-50%, -50%) —
+     лист съезжал вниз на половину своей высоты и упирался в край экрана. */
+  animation: modalIn 0.34s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  /* На низком окне список не должен уезжать за край: лист упирается
+     в высоту экрана и прокручивается внутри себя. */
+  max-height: 86vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modal__head {
@@ -1952,6 +1960,7 @@ textarea:focus-visible {
     width: auto;
     transform: none;
     border-radius: 32px;
+    max-height: calc(100vh - 16px);
     animation: dropIn 0.34s cubic-bezier(0.2, 1.1, 0.3, 1) both;
   }
 
@@ -2040,4 +2049,16 @@ textarea:focus-visible {
 
 .crash__button {
   margin-top: 6px;
+}
+
+/* Центрирование живёт в самом transform, поэтому и в кадрах анимации тоже. */
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 14px)) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }

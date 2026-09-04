@@ -6,9 +6,9 @@ import { formatSyncedAgo } from '../lib/format';
 import { SOURCE_GRADIENT, SOURCE_LABEL, SOURCE_LETTER } from '../lib/levels';
 import type { Connection, SourceKind } from '../lib/types';
 
-/** Сервисы из планов развития показываются неактивными (решение №23). */
+/** Сервисы из планов развития показываются неактивными (решения №23, №51). */
 const SERVICES: {
-  kind: SourceKind | 'github' | 'slack' | 'notion';
+  kind: SourceKind | 'vk' | 'github';
   name: string;
   hint: string;
   letter: string;
@@ -26,32 +26,24 @@ const SERVICES: {
   {
     kind: 'telegram',
     name: 'Telegram',
-    hint: 'Нужно написать боту @inbox_bot',
+    hint: 'Свой бот через @BotFather',
     letter: 'T',
     gradient: 'var(--src-tg)',
     soon: false,
+  },
+  {
+    kind: 'vk',
+    name: 'VK',
+    hint: 'Сообщения сообществ',
+    letter: 'B',
+    gradient: 'var(--fill2)',
+    soon: true,
   },
   {
     kind: 'github',
     name: 'GitHub',
     hint: 'Issues, PR, упоминания',
     letter: 'G',
-    gradient: 'var(--fill2)',
-    soon: true,
-  },
-  {
-    kind: 'slack',
-    name: 'Slack',
-    hint: 'Треды и личные сообщения',
-    letter: 'S',
-    gradient: 'var(--fill2)',
-    soon: true,
-  },
-  {
-    kind: 'notion',
-    name: 'Notion',
-    hint: 'Комментарии и упоминания',
-    letter: 'N',
     gradient: 'var(--fill2)',
     soon: true,
   },
