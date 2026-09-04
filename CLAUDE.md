@@ -71,7 +71,7 @@
 ## Стек
 
 React 18 + TypeScript + Vite · обычный CSS на переменных · `react-router-dom`
-**Go 1.24 + `net/http`** · PostgreSQL 16 через `database/sql` и `pgx`
+**Go 1.25 + `net/http`** · PostgreSQL 16 через `database/sql` и `pgx`
 обычный SQL в `internal/postgres` · миграции — свои `.sql` через `embed`
 Redis 7 через `go-redis` — кэш сводки/источников и одноразовый state OAuth
 фоновые задачи — горутина с `time.Ticker` в том же процессе
