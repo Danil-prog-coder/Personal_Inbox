@@ -128,16 +128,14 @@ export function ConnectionsScreen({ connections, onChanged, onToast }: Props) {
 
   return (
     <div className="screen">
-      <div className="screen-head">
+      <div className="screen-flow">
+        <div className="screen-flow__column">
         <div className="head-titles">
           <h1 className="screen-title">Источники</h1>
           <span className="screen-subtitle">
             {reauthCount > 0 ? 'Один источник требует внимания' : 'Все источники синхронизированы'}
           </span>
         </div>
-      </div>
-
-      <div className="screen-body screen-body--narrow">
         {connections.map((connection) => (
           <div
             key={connection.kind}
@@ -205,6 +203,7 @@ export function ConnectionsScreen({ connections, onChanged, onToast }: Props) {
           </span>
           Добавить источник
         </button>
+        </div>
       </div>
 
       {addOpen && (

@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -12,42 +11,42 @@ import (
 	"syscall"
 	"time"
 
-	"personalinbox/internal/analysis"
-	"personalinbox/internal/api"
-	"personalinbox/internal/config"
+	"personalinbox/internal/core"
 	"personalinbox/internal/events"
-	"personalinbox/internal/ingest"
-	"personalinbox/internal/llm"
-	"personalinbox/internal/scheduler"
-	"personalinbox/internal/security"
-	"personalinbox/internal/seed"
-	"personalinbox/internal/sources/gmail"
-	"personalinbox/internal/sources/telegram"
-	"personalinbox/internal/store"
+	"personalinbox/internal/gmail"
+	"personalinbox/internal/openai"
+	"personalinbox/internal/postgres"
+	"personalinbox/internal/redis"
+	"personalinbox/internal/routers"
+	"personalinbox/internal/services/analysis"
+	"personalinbox/internal/services/ingest"
+	"personalinbox/internal/services/scheduler"
+	"personalinbox/internal/services/seed"
+	"personalinbox/internal/telegram"
+	"personalinbox/internal/utils/security"
 )
 
 func main() {
-	// Схема накатывается при открытии базы; флаг нужен, чтобы сделать это
-	// без запуска сервера (make migrate).
-	migrateOnly := flag.Bool("migrate-only", false, "накатить миграции и выйти")
-	flag.Parse()
-
 	log.SetFlags(log.LstdFlags)
-	cfg := config.Load()
+	cfg := core.Load()
 
-	db, err := store.Open(cfg.DatabasePath)
+	db, err := postgres.Open(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("база данных: %v", err)
 	}
 	defer db.Close()
 
-	if *migrateOnly {
-		log.Printf("схема готова: %s", cfg.DatabasePath)
-		return
+	// Redis обязателен: в нём живут сессии, без него нельзя войти.
+	cache, err := redis.Open(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("redis: %v", err)
 	}
+	defer cache.Close()
 
 	bus := events.New(200)
-	worker := analysis.NewWorker(db, bus, llm.NewOpenAI(cfg))
+	// Любое изменение ленты проходит через шину — на нём и сбрасываем кэш.
+	bus.OnPublish(func(userID int64) { cache.DropCache(context.Background(), userID) })
+	worker := analysis.NewWorker(db, bus, openai.NewOpenAI(cfg))
 	ingestor := ingest.New(db, bus, worker)
 	gmailClient := gmail.NewClient(cfg)
 	telegramClient := telegram.NewClient()
@@ -73,7 +72,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: api.New(cfg, db, bus, ingestor, worker, gmailClient, telegramClient).Handler(),
+		Handler: routers.New(cfg, db, cache, bus, ingestor, worker, gmailClient, telegramClient).Handler(),
 		// Поток SSE живёт долго, поэтому таймаута на запись нет намеренно.
 		ReadHeaderTimeout: 10 * time.Second,
 	}

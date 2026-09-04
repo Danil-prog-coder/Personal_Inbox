@@ -1,12 +1,14 @@
-.PHONY: migrate run seed test lint build front front-install test-front graph
+.PHONY: run seed test lint build front front-install test-front up down graph
 
 GO ?= go
 BACKEND ?= backend
 
-# Схема создаётся при старте сервера; отдельная команда нужна, только чтобы
-# накатить миграции без запуска приложения.
-migrate:
-	cd $(BACKEND) && $(GO) run ./cmd/server -migrate-only
+# Весь стек в контейнерах: nginx на http://localhost:8080 и бэкенд за ним.
+up:
+	docker compose up --build
+
+down:
+	docker compose down
 
 run:
 	cd $(BACKEND) && $(GO) run ./cmd/server

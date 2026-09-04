@@ -13,6 +13,8 @@ interface Props<T extends string> {
   onChange: (value: T) => void;
   variant?: 'pill' | 'inset';
   ariaLabel?: string;
+  /** Окраска линзы и активной подписи — для переключателя уровня важности. */
+  tone?: { ink: string; tint: string; edge: string; glow: string };
 }
 
 export function Segmented<T extends string>({
@@ -21,17 +23,26 @@ export function Segmented<T extends string>({
   onChange,
   variant = 'pill',
   ariaLabel,
+  tone,
 }: Props<T>) {
   const index = Math.max(0, options.findIndex((option) => option.value === value));
   return (
     <div
-      className={`segmented${variant === 'inset' ? ' segmented--inset' : ''}`}
+      className={`segmented${variant === 'inset' ? ' segmented--inset' : ''}${
+        tone ? ' segmented--level' : ''
+      }`}
       role="tablist"
       aria-label={ariaLabel}
       style={
         {
           '--seg-count': options.length,
           '--seg-index': index,
+          ...(tone && {
+            '--seg-ink': tone.ink,
+            '--seg-tint': tone.tint,
+            '--seg-edge': tone.edge,
+            '--seg-glow': tone.glow,
+          }),
         } as React.CSSProperties
       }
     >

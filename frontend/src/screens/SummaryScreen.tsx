@@ -40,8 +40,9 @@ export function SummaryScreen({ onOpenMessage }: { onOpenMessage: (id: number) =
 
   return (
     <div className="screen">
-      <div className="screen-head">
-        <div className="head-row">
+      <div className="screen-flow screen-flow--wide">
+        <div className="screen-flow__column">
+        <div className="head-row head-row--wrap">
           <div className="head-titles">
             <h1 className="screen-title">Сводка</h1>
             <span className="screen-subtitle">{RANGE_LABEL[period]}</span>
@@ -55,9 +56,6 @@ export function SummaryScreen({ onOpenMessage }: { onOpenMessage: (id: number) =
             />
           </div>
         </div>
-      </div>
-
-      <div className="screen-body screen-body--narrow">
         {loading || !summary ? (
           <div className="loading-card">
             <span className="loading-card__spinner" aria-hidden="true" />
@@ -67,7 +65,7 @@ export function SummaryScreen({ onOpenMessage }: { onOpenMessage: (id: number) =
             </div>
           </div>
         ) : (
-          <>
+          <div className="summary-stack">
             <div className="summary-grid">
               <div className="summary-total">
                 <div className="summary-total__row">
@@ -158,8 +156,9 @@ export function SummaryScreen({ onOpenMessage }: { onOpenMessage: (id: number) =
                 ))
               )}
             </div>
-          </>
+          </div>
         )}
+        </div>
       </div>
     </div>
   );

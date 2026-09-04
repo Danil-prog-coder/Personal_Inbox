@@ -25,14 +25,44 @@
 
 `docs/reference/` — источник правды по интерфейсу:
 
-- `Personal Inbox.dc.html` — оригинальный интерактивный прототип (открывается в браузере)
-- `reference-source.html` — распакованный исходник прототипа, читаемый
+- `Personal Inbox.dc.html` — интерактивный прототип: **это его и открывать**.
+  Файл самодостаточен, интернет не нужен
+- `reference-source.html` — тот же документ, распакованный для чтения; сам
+  по себе не отрисовывается, потому что рантайм лежит в бандле
 - `design-tokens.css` — CSS-переменные, извлечённые из прототипа один-в-один
 - `original/` — исходные спецификации заказчика, для истории
 
 ## Запуск
 
 Нужен Go 1.24+ и Node 20+.
+
+> `frontend/index.html` нельзя открыть двойным кликом с диска. Это SPA:
+> браузер запрещает ES-модули по `file://` (CORS), поэтому страница остаётся
+> пустой, а в консоли — 404 или `blocked by CORS policy`. Приложению нужен
+> http-сервер и живой бэкенд — команда ниже поднимает и то, и другое.
+
+### Всё сразу, в контейнерах
+
+```bash
+cp .env.example .env          # ключи можно не заполнять
+docker compose up --build     # http://localhost:8080
+```
+
+Поднимаются четыре сервиса: `postgres` (данные в томе `pgdata`), `redis`
+(сессии и кэш, том `redisdata`), `backend` и `nginx` — последний отдаёт
+собранную статику фронтенда и проксирует `/api` на бэкенд, поэтому фронт и API
+живут на одном origin. Бэкенд стартует только после того, как база и Redis
+прошли healthcheck. Отдельных сервисов для миграций и тестов нет: схема
+накатывается при старте сервера, тесты гоняются вручную. Демо-данные заливаются
+одной командой в уже поднятом стеке:
+
+```bash
+docker compose exec backend /app/seed
+```
+
+Порт меняется переменной `WEB_PORT`.
+
+### Без контейнеров
 
 ```bash
 cp .env.example .env  # ключи можно не заполнять: приложение поднимется и без них
@@ -47,9 +77,15 @@ make front          # http://localhost:5173, запросы к /api уходят
 make test-front     # тесты фронтенда
 ```
 
-Схема базы накатывается сама при старте, отдельная команда `make migrate` нужна,
-только чтобы сделать это без запуска сервера. Зависимости бэкенда скачиваются
-при первой сборке (`go mod download` вызывать вручную не нужно).
+Схема базы накатывается сама при старте сервера — отдельного шага миграции нет.
+Зависимости бэкенда скачиваются при первой сборке (`go mod download` вызывать
+вручную не нужно).
+
+Тесты бэкенда ходят в настоящие Postgres и Redis: каждый тест получает свою
+схему и свой префикс ключей и убирает их за собой. Адреса берутся из
+`TEST_DATABASE_URL` и `TEST_REDIS_URL`, иначе из `DATABASE_URL` и `REDIS_URL`,
+иначе из локальных значений по умолчанию. Без запущенных Postgres и Redis
+тесты падают, а не пропускаются молча.
 
 Без `OPENAI_API_KEY` сообщения всё равно попадают в ленту, но получают пометку
 «Оценка недоступна» после трёх попыток вызова модели. Без ключей Google
@@ -94,18 +130,27 @@ graphify hook install
 backend/
   cmd/server/         точка входа: маршруты, планировщик, корректная остановка
   cmd/seed/           заливка демо-данных, флаг --live для очереди SSE
-  internal/api/       ручки: auth, me, connections, sources, messages, summary, stream
-                      session.go — подписанная cookie вместо JWT
-  internal/store/     модели, SQL, фильтры ленты, migrations/*.sql через embed
-  internal/llm/       адаптер модели: промпт, строгая схема ответа
-  internal/analysis/  очередь оценки, три повтора, фоновая переоценка
-  internal/ingest/    приём сообщения: дедупликация, событие, очередь
-  internal/sources/   gmail (OAuth + History API) и telegram (Bot API)
-  internal/scheduler/ синхронизация раз в 5 минут
-  internal/events/    шина событий для SSE
-  internal/view/      схемы ответов API
-  internal/seed/      демо-данные из референса
+  internal/core/          настройки: окружение, .env, константы
+  internal/routers/       ручки: auth, me, connections, sources, messages, summary, stream
+                          session.go — подписанная cookie вместо JWT
+  internal/schemas/       схемы ответов API
+  internal/exceptions/    сквозные ошибки: не найдено, модель недоступна, сбой источника
+  internal/services/      бизнес-логика, по папке на задачу:
+    analysis/             очередь оценки, три повтора, фоновая переоценка
+    ingest/               приём сообщения: дедупликация, событие, очередь
+    scheduler/            синхронизация раз в 5 минут
+    seed/                 демо-данные из референса
+  internal/postgres/      база: модели, SQL, фильтры ленты, migrations/*.sql через embed
+  internal/redis/         сессии и кэш сводки/источников
+  internal/openai/        адаптер модели: промпт, строгая схема ответа
+  internal/gmail/         OAuth + History API
+  internal/telegram/      Bot API
+  internal/events/        шина событий для SSE
+  internal/utils/         вспомогательное: security/ — пароли (bcrypt)
+  internal/testenv/       стенд для тестов: своя схема в Postgres и префикс в Redis
 frontend/             React 18 + TypeScript + Vite
+  nginx.conf          статика и прокси /api для контейнера
+docker-compose.yml    весь стек: backend + nginx
 ```
 
 Тесты лежат рядом с кодом (`*_test.go`): внешние сервисы поднимаются как
