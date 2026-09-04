@@ -62,7 +62,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/connections", s.handleListConnections)
 	mux.HandleFunc("POST /api/connections/gmail/start", s.handleGmailStart)
 	mux.HandleFunc("GET /api/connections/gmail/callback", s.handleGmailCallback)
-	mux.HandleFunc("POST /api/connections/telegram", s.handleConnectTelegram)
+	mux.HandleFunc("POST /api/connections/telegram/start", s.handleTelegramStart)
+	mux.HandleFunc("POST /api/connections/telegram/confirm", s.handleTelegramConfirm)
 	mux.HandleFunc("DELETE /api/connections/{kind}", s.handleDisconnect)
 
 	mux.HandleFunc("GET /api/sources", s.handleListSources)

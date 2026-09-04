@@ -24,8 +24,8 @@ func newScheduler(t *testing.T) (*Scheduler, *postgres.DB, *postgres.User) {
 		t.Fatal(err)
 	}
 	ingestor := ingest.New(db, events.New(10), &fakeQueue{})
-	// Адреса заведомо недоступны: важно, что планировщик переживает сбой.
-	return New(ingestor, &gmail.Client{}, &telegram.Client{BaseURL: "http://127.0.0.1:1"}), db, user
+	// Оба клиента без ключей и адресов: важно, что планировщик переживает сбой.
+	return New(ingestor, &gmail.Client{}, &telegram.Client{}), db, user
 }
 
 func connect(t *testing.T, db *postgres.DB, user *postgres.User, kind, state string) {
@@ -35,7 +35,7 @@ func connect(t *testing.T, db *postgres.DB, user *postgres.User, kind, state str
 		t.Fatal(err)
 	}
 	connection.State = state
-	connection.Credentials = `{"bot_token": "123:abc", "refresh_token": "тест"}`
+	connection.Credentials = `{"session": "не-сессия", "refresh_token": "тест"}`
 	if err := db.SaveConnection(connection); err != nil {
 		t.Fatal(err)
 	}

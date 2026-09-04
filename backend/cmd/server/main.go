@@ -48,7 +48,7 @@ func main() {
 	worker := analysis.NewWorker(db, bus, openai.NewOpenAI(cfg))
 	ingestor := ingest.New(db, bus, worker)
 	gmailClient := gmail.NewClient(cfg)
-	telegramClient := telegram.NewClient()
+	telegramClient := telegram.NewClient(cfg.TelegramAPIID, cfg.TelegramAPIHash)
 
 	var sync *scheduler.Scheduler
 	if cfg.EnableScheduler {

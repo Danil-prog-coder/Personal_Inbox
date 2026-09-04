@@ -1,29 +1,12 @@
 package routers
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"personalinbox/internal/schemas"
-	"personalinbox/internal/telegram"
 )
-
-// telegramStub подменяет Bot API: подключение проверяется вызовом getMe.
-func (e *env) telegramStub(ok bool) {
-	e.t.Helper()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if !ok {
-			w.Write([]byte(`{"ok": false, "description": "Unauthorized: неверный токен"}`))
-			return
-		}
-		w.Write([]byte(`{"ok": true, "result": {"username": "maxorlov_bot"}}`))
-	}))
-	e.t.Cleanup(server.Close)
-	*e.telegram = telegram.Client{BaseURL: server.URL, HTTP: server.Client()}
-}
 
 func TestListShowsBothSourcesEvenWithoutConnections(t *testing.T) {
 	e := newEnv(t)
@@ -65,70 +48,69 @@ func TestListShowsStateAndAccount(t *testing.T) {
 	}
 }
 
-func TestConnectTelegramVerifiesToken(t *testing.T) {
+// Вход в Telegram идёт через настоящий MTProto: код приходит на телефон,
+// подменить это в тесте нечем. Проверяем всё, что до сети (решение №52).
+
+func TestTelegramStartNeedsAPIKeys(t *testing.T) {
 	e := newEnv(t)
-	user := e.user()
-	e.telegramStub(true)
+	e.user()
 
-	status, raw := e.do(http.MethodPost, "/api/connections/telegram",
-		map[string]string{"bot_token": "123456:секретный-токен"})
-	if status != http.StatusOK {
-		t.Fatalf("подключение вернуло %d: %s", status, raw)
+	status, raw := e.do(http.MethodPost, "/api/connections/telegram/start",
+		map[string]string{"phone": "+79990000000"})
+	if status != http.StatusServiceUnavailable {
+		t.Fatalf("без ключей API ожидался 503, получен %d", status)
 	}
-	var connection schemas.Connection
-	e.decode(raw, &connection)
-	if connection.Account != "@maxorlov_bot" || connection.State != "active" {
-		t.Fatalf("подключение собрано неверно: %+v", connection)
-	}
-
-	stored, err := e.db.Connection(user.ID, "telegram")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var credentials map[string]string
-	if err := json.Unmarshal([]byte(stored.Credentials), &credentials); err != nil {
-		t.Fatal(err)
-	}
-	if credentials["bot_token"] != "123456:секретный-токен" {
-		t.Fatalf("токен сохранён неверно: %v", credentials)
+	if !strings.Contains(e.detail(raw), "TELEGRAM_API_ID") {
+		t.Fatalf("ошибка должна называть недостающие ключи: %q", e.detail(raw))
 	}
 }
 
-func TestConnectTelegramWithBadToken(t *testing.T) {
+func TestTelegramStartRejectsShortPhone(t *testing.T) {
 	e := newEnv(t)
 	e.user()
-	e.telegramStub(false)
+	e.telegramKeys()
 
-	status, raw := e.do(http.MethodPost, "/api/connections/telegram",
-		map[string]string{"bot_token": "123456:плохой-токен"})
-	if status != http.StatusBadRequest {
-		t.Fatalf("неверный токен вернул %d", status)
-	}
-	if !strings.Contains(e.detail(raw), "Unauthorized") {
-		t.Fatalf("ошибка Telegram должна доходить до пользователя: %q", e.detail(raw))
-	}
-}
-
-func TestConnectTelegramRejectsShortToken(t *testing.T) {
-	e := newEnv(t)
-	e.user()
-	status, _ := e.do(http.MethodPost, "/api/connections/telegram",
-		map[string]string{"bot_token": "123"})
+	status, _ := e.do(http.MethodPost, "/api/connections/telegram/start",
+		map[string]string{"phone": "+7"})
 	if status != http.StatusUnprocessableEntity {
-		t.Fatalf("слишком короткий токен вернул %d", status)
+		t.Fatalf("короткий номер вернул %d", status)
 	}
 }
 
-func TestReconnectUpdatesExistingRow(t *testing.T) {
+func TestTelegramConfirmNeedsCode(t *testing.T) {
+	e := newEnv(t)
+	e.user()
+
+	status, _ := e.do(http.MethodPost, "/api/connections/telegram/confirm",
+		map[string]string{"code": "   "})
+	if status != http.StatusUnprocessableEntity {
+		t.Fatalf("пустой код вернул %d", status)
+	}
+}
+
+func TestTelegramConfirmWithoutStart(t *testing.T) {
+	e := newEnv(t)
+	e.user()
+
+	status, raw := e.do(http.MethodPost, "/api/connections/telegram/confirm",
+		map[string]string{"code": "12345"})
+	if status != http.StatusBadRequest {
+		t.Fatalf("подтверждение без запроса кода вернуло %d", status)
+	}
+	if !strings.Contains(e.detail(raw), "истекло") {
+		t.Fatalf("текст ошибки: %q", e.detail(raw))
+	}
+}
+
+func TestReconnectKeepsSingleRow(t *testing.T) {
 	e := newEnv(t)
 	user := e.user()
 	e.connection(user, "telegram", "reauth")
-	e.telegramStub(true)
 
-	if status, _ := e.do(http.MethodPost, "/api/connections/telegram",
-		map[string]string{"bot_token": "123456:новый-токен"}); status != http.StatusOK {
-		t.Fatal("переподключение не удалось")
-	}
+	// Повторное подключение того же вида не должно заводить вторую строку:
+	// GetOrCreateConnection возвращает существующую.
+	e.connection(user, "telegram", "active")
+
 	connections, err := e.db.ConnectionsOf(user.ID)
 	if err != nil {
 		t.Fatal(err)

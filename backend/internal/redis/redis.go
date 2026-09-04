@@ -90,6 +90,35 @@ func (c *Client) TakeOAuthState(ctx context.Context, userID int64) string {
 	return state
 }
 
+// ── Незавершённый вход в Telegram ───────────────────────────────────────
+
+// PendingTTL — сколько ждём ввода кода из Telegram. Внутри лежит сессия
+// с ключом шифрования, поэтому хранится она ровно до конца входа.
+const PendingTTL = 10 * time.Minute
+
+func (c *Client) pendingKey(userID int64) string {
+	return fmt.Sprintf("%stg-login:%d", c.prefix, userID)
+}
+
+// SavePending запоминает состояние между «отправили код» и «ввели код».
+func (c *Client) SavePending(ctx context.Context, userID int64, value any) error {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return c.rdb.Set(ctx, c.pendingKey(userID), payload, PendingTTL).Err()
+}
+
+// TakePending забирает состояние и сразу удаляет его: код одноразовый,
+// второй попытки с тем же состоянием быть не должно.
+func (c *Client) TakePending(ctx context.Context, userID int64, out any) bool {
+	payload, err := c.rdb.GetDel(ctx, c.pendingKey(userID)).Bytes()
+	if err != nil {
+		return false
+	}
+	return json.Unmarshal(payload, out) == nil
+}
+
 // ── Кэш ─────────────────────────────────────────────────────────────────
 
 // CacheTTL — короткий срок жизни кэша. Даже если инвалидация где-то не

@@ -359,9 +359,11 @@ func TestSyncWithoutCredentialsSwitchesToReauth(t *testing.T) {
 }
 
 func TestNetworkErrorKeepsConnectionActive(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-	address := server.URL
-	server.Close()
+	// Порт 1 привилегированный: занять его тестам нечем, поэтому отказ
+	// в соединении гарантирован. Закрытый httptest-сервер здесь не годился —
+	// его порт успевал занять соседний тест, и вместо сетевого сбоя
+	// приходил чужой ответ.
+	address := "http://127.0.0.1:1"
 	client := &Client{ClientID: "id", ClientSecret: "secret",
 		TokenURL: address + "/token", APIBase: address + "/gmail/v1"}
 	ingestor, connection := newIngestor(t)

@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -42,6 +43,11 @@ type Config struct {
 	GoogleRedirectURI  string
 	AppBaseURL         string
 
+	// Ключи клиентского API Telegram с my.telegram.org. Личную переписку
+	// отдаёт только он: бот её не видит в принципе (решение №52).
+	TelegramAPIID   int
+	TelegramAPIHash string
+
 	FrontendOrigin  string
 	Addr            string
 	EnableScheduler bool
@@ -63,6 +69,8 @@ func Load() Config {
 		GoogleClientSecret: env("GOOGLE_CLIENT_SECRET", ""),
 		AppBaseURL:         appBase,
 		GoogleRedirectURI:  env("GOOGLE_REDIRECT_URI", appBase+"/api/connections/gmail/callback"),
+		TelegramAPIID:      envInt("TELEGRAM_API_ID", 0),
+		TelegramAPIHash:    env("TELEGRAM_API_HASH", ""),
 		FrontendOrigin:     env("FRONTEND_ORIGIN", "http://localhost:5173"),
 		Addr:               env("ADDR", ":8000"),
 		EnableScheduler:    flag("ENABLE_SCHEDULER", true),
@@ -71,6 +79,15 @@ func Load() Config {
 		DemoLive: flag("DEMO_LIVE", false),
 	}
 	return c
+}
+
+// envInt читает число; пустое или мусорное значение — как не заданное.
+func envInt(name string, fallback int) int {
+	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv(name)))
+	if err != nil {
+		return fallback
+	}
+	return value
 }
 
 func env(name, fallback string) string {

@@ -1,269 +1,319 @@
-// Package telegram — источник Telegram через Bot API: проверка токена
-// и long polling getUpdates.
+// Package telegram — источник Telegram через клиентский API (MTProto).
 //
-// Только Bot API — личный аккаунт через MTProto не используем (решение №4).
-// Следствие: бот видит только те чаты, куда его добавили, и историю
-// до добавления не отдаёт (решение №16).
+// Именно клиентский, а не Bot API: бот видит только чаты, куда его добавили,
+// и личную переписку не отдаёт в принципе — это ограничение платформы, а не
+// настройка. Личные сообщения доступны только под своим аккаунтом, тем же
+// протоколом, на котором работают сами клиенты Telegram (решение №52).
+//
+// Плата за это — вход по номеру телефона и сессия в базе, которая даёт
+// полный доступ к аккаунту. Приложение локальное, поэтому цена приемлемая,
+// но обращаться с сессией нужно как с паролем.
 package telegram
 
 import (
-	"bytes"
+	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
-	"personalinbox/internal/exceptions"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gotd/td/session"
+	tgclient "github.com/gotd/td/telegram"
+	"github.com/gotd/td/telegram/auth"
+	"github.com/gotd/td/tg"
+
+	"personalinbox/internal/exceptions"
 	"personalinbox/internal/postgres"
 	"personalinbox/internal/services/ingest"
 )
 
-const defaultBaseURL = "https://api.telegram.org"
+const (
+	// dialogsLimit — сколько диалогов просматриваем за один проход. Верхних
+	// сорока хватает: ниже лежит то, что молчит месяцами.
+	dialogsLimit = 40
+	// historyLimit — сколько сообщений берём из одного диалога за проход.
+	historyLimit = 30
+	// importDays и importLimit — глубина первого импорта, как у Gmail
+	// (решение №16).
+	importDays  = 30
+	importLimit = 200
+	// overlap — на сколько отматываем назад от прошлой синхронизации: часы
+	// клиента и сервера расходятся, а повтор отсеет дедупликация ingest.
+	overlap = 2 * time.Minute
+)
 
-// Client — вызовы Bot API. BaseURL подменяется в тестах.
+// Client — доступ к клиентскому API. Ключи берутся с my.telegram.org
+// и передаются через окружение.
 type Client struct {
-	BaseURL string
-	HTTP    *http.Client
+	APIID   int
+	APIHash string
 }
 
-// NewClient собирает клиента с разумным таймаутом.
-func NewClient() *Client {
-	return &Client{BaseURL: defaultBaseURL, HTTP: &http.Client{Timeout: 20 * time.Second}}
+// NewClient собирает клиента. Без ключей он не работает и честно об этом
+// говорит при первой же попытке подключения.
+func NewClient(apiID int, apiHash string) *Client {
+	return &Client{APIID: apiID, APIHash: apiHash}
 }
 
-func (c *Client) baseURL() string {
-	if c.BaseURL == "" {
-		return defaultBaseURL
+// Configured — заданы ли ключи API.
+func (c *Client) Configured() bool {
+	return c.APIID != 0 && c.APIHash != ""
+}
+
+// Pending — промежуточное состояние между «отправили код» и «ввели код».
+// Живёт в Redis несколько минут: сессия здесь уже содержит ключ шифрования,
+// поэтому хранить её дольше нужного незачем.
+type Pending struct {
+	Phone    string `json:"phone"`
+	CodeHash string `json:"code_hash"`
+	Session  string `json:"session"`
+}
+
+// Credentials — то, что лежит в connection.Credentials после входа.
+type Credentials struct {
+	Session string `json:"session"`
+}
+
+// ErrPasswordNeeded — у аккаунта включена двухфакторная защита, нужен пароль.
+var ErrPasswordNeeded = errors.New("нужен пароль двухфакторной защиты")
+
+// storageFrom восстанавливает хранилище сессии из строки. Пустая строка —
+// новая сессия.
+func storageFrom(encoded string) (*session.StorageMemory, error) {
+	storage := &session.StorageMemory{}
+	if encoded == "" {
+		return storage, nil
 	}
-	return c.BaseURL
-}
-
-func (c *Client) client() *http.Client {
-	if c.HTTP == nil {
-		return &http.Client{Timeout: 20 * time.Second}
-	}
-	return c.HTTP
-}
-
-// Call — один вызов метода Bot API.
-func (c *Client) Call(token, method string, params map[string]any) (json.RawMessage, error) {
-	body, err := json.Marshal(params)
+	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", exceptions.ErrTelegram, err)
+		return nil, fmt.Errorf("%w: сессия повреждена", exceptions.ErrTelegram)
 	}
-	url := fmt.Sprintf("%s/bot%s/%s", c.baseURL(), token, method)
-	response, err := c.client().Post(url, "application/json", bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("%w: недоступен: %v", exceptions.ErrTelegram, err)
+	if err := storage.StoreSession(context.Background(), raw); err != nil {
+		return nil, fmt.Errorf("%w: сессия не читается", exceptions.ErrTelegram)
 	}
-	defer response.Body.Close()
+	return storage, nil
+}
 
-	raw, err := io.ReadAll(response.Body)
+func encodeSession(ctx context.Context, storage *session.StorageMemory) (string, error) {
+	raw, err := storage.LoadSession(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: недоступен: %v", exceptions.ErrTelegram, err)
+		return "", fmt.Errorf("%w: сессию не сохранить: %v", exceptions.ErrTelegram, err)
 	}
-	var payload struct {
-		OK          bool            `json:"ok"`
-		Description string          `json:"description"`
-		Result      json.RawMessage `json:"result"`
+	return base64.StdEncoding.EncodeToString(raw), nil
+}
+
+// run поднимает соединение, выполняет работу и закрывает его. Постоянного
+// подключения нет намеренно: синхронизация идёт раз в 5 минут, держать сокет
+// между заходами незачем.
+func (c *Client) run(ctx context.Context, storage *session.StorageMemory,
+	work func(ctx context.Context, api *tg.Client, client *tgclient.Client) error) error {
+	if !c.Configured() {
+		return fmt.Errorf("%w: не заданы TELEGRAM_API_ID и TELEGRAM_API_HASH", exceptions.ErrTelegram)
 	}
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return nil, fmt.Errorf("%w: недоступен: %v", exceptions.ErrTelegram, err)
-	}
-	if !payload.OK {
-		description := payload.Description
-		if description == "" {
-			description = "Telegram вернул ошибку"
+	client := tgclient.NewClient(c.APIID, c.APIHash, tgclient.Options{SessionStorage: storage})
+	return client.Run(ctx, func(ctx context.Context) error {
+		return work(ctx, client.API(), client)
+	})
+}
+
+// SendCode просит Telegram прислать код подтверждения на номер. Возвращает
+// состояние, которое нужно передать в SignIn.
+func (c *Client) SendCode(ctx context.Context, phone string) (Pending, error) {
+	phone = strings.TrimSpace(phone)
+	storage := &session.StorageMemory{}
+	var pending Pending
+
+	err := c.run(ctx, storage, func(ctx context.Context, _ *tg.Client, client *tgclient.Client) error {
+		sent, err := client.Auth().SendCode(ctx, phone, auth.SendCodeOptions{})
+		if err != nil {
+			return fmt.Errorf("%w: %v", exceptions.ErrTelegram, err)
 		}
-		return nil, fmt.Errorf("%w: %s", exceptions.ErrTelegram, description)
-	}
-	return payload.Result, nil
-}
-
-// VerifyToken проверяет токен через getMe. Возвращает @username бота —
-// его показываем в UI.
-func (c *Client) VerifyToken(token string) (string, error) {
-	raw, err := c.Call(token, "getMe", map[string]any{})
+		code, ok := sent.(*tg.AuthSentCode)
+		if !ok {
+			return fmt.Errorf("%w: Telegram не прислал код", exceptions.ErrTelegram)
+		}
+		pending.CodeHash = code.PhoneCodeHash
+		return nil
+	})
 	if err != nil {
-		return "", err
+		return Pending{}, err
 	}
-	var bot struct {
-		Username  string `json:"username"`
-		FirstName string `json:"first_name"`
+
+	encoded, err := encodeSession(ctx, storage)
+	if err != nil {
+		return Pending{}, err
 	}
-	if err := json.Unmarshal(raw, &bot); err != nil {
-		return "", fmt.Errorf("%w: ответ getMe не разобрать", exceptions.ErrTelegram)
-	}
-	if bot.Username != "" {
-		return "@" + bot.Username, nil
-	}
-	if bot.FirstName != "" {
-		return bot.FirstName, nil
-	}
-	return "бот", nil
+	pending.Phone = phone
+	pending.Session = encoded
+	return pending, nil
 }
 
-type chat struct {
-	ID        int64  `json:"id"`
-	Type      string `json:"type"`
-	Title     string `json:"title"`
-	Username  string `json:"username"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-}
+// SignIn завершает вход. Пустой пароль допустим: он нужен только аккаунтам
+// с двухфакторной защитой, и тогда возвращается ErrPasswordNeeded.
+// Второе возвращаемое значение — подпись аккаунта для карточки источника.
+func (c *Client) SignIn(ctx context.Context, pending Pending, code, password string) (string, string, error) {
+	storage, err := storageFrom(pending.Session)
+	if err != nil {
+		return "", "", err
+	}
 
-type update struct {
-	UpdateID int64 `json:"update_id"`
-	Message  *struct {
-		MessageID int64  `json:"message_id"`
-		Date      int64  `json:"date"`
-		Text      string `json:"text"`
-		Caption   string `json:"caption"`
-		Chat      chat   `json:"chat"`
-	} `json:"message"`
-}
-
-// chatTitle возвращает (имя отправителя, адрес). Для групп адрес —
-// «групповой чат, N участников». cache хранит уже запрошенные счётчики:
-// в одном чате обычно приходит пачка сообщений, и спрашивать Telegram
-// про каждое незачем.
-func (c *Client) chatTitle(token string, source chat, cache map[int64]string) (string, string) {
-	if source.Type == "group" || source.Type == "supergroup" || source.Type == "channel" {
-		name := source.Title
-		if name == "" {
-			name = "Групповой чат"
-		}
-		if addr, ok := cache[source.ID]; ok {
-			return name, addr
-		}
-		addr := "групповой чат"
-		if raw, err := c.Call(token, "getChatMemberCount",
-			map[string]any{"chat_id": source.ID}); err == nil {
-			var count int
-			if err := json.Unmarshal(raw, &count); err == nil {
-				addr = fmt.Sprintf("групповой чат, %d участников", count)
+	var account string
+	err = c.run(ctx, storage, func(ctx context.Context, _ *tg.Client, client *tgclient.Client) error {
+		_, err := client.Auth().SignIn(ctx, pending.Phone, strings.TrimSpace(code), pending.CodeHash)
+		if errors.Is(err, auth.ErrPasswordAuthNeeded) {
+			if password == "" {
+				return ErrPasswordNeeded
 			}
+			if _, err := client.Auth().Password(ctx, password); err != nil {
+				return fmt.Errorf("%w: пароль не подошёл", exceptions.ErrTelegram)
+			}
+		} else if err != nil {
+			return fmt.Errorf("%w: %v", exceptions.ErrTelegram, err)
 		}
-		cache[source.ID] = addr
-		return name, addr
+
+		self, err := client.Self(ctx)
+		if err != nil {
+			return fmt.Errorf("%w: не удалось прочитать профиль", exceptions.ErrTelegram)
+		}
+		account = accountTitle(self)
+		return nil
+	})
+	if err != nil {
+		return "", "", err
 	}
 
-	name := strings.TrimSpace(strings.Join(
-		[]string{source.FirstName, source.LastName}, " "))
-	if name == "" {
-		name = "Без имени"
+	encoded, err := encodeSession(ctx, storage)
+	if err != nil {
+		return "", "", err
 	}
-	if source.Username != "" {
-		return name, "@" + source.Username
-	}
-	return name, "личный чат"
+	return encoded, account, nil
 }
 
-// externalURL — прямая ссылка есть только у чатов с username;
-// иначе кнопка не показывается.
-func externalURL(source chat, messageID int64) string {
-	if source.Username == "" {
-		return ""
+// accountTitle — подпись аккаунта на карточке источника.
+func accountTitle(self *tg.User) string {
+	if self == nil {
+		return "аккаунт Telegram"
 	}
-	return fmt.Sprintf("https://t.me/%s/%d", source.Username, messageID)
+	if self.Username != "" {
+		return "@" + self.Username
+	}
+	name := strings.TrimSpace(self.FirstName + " " + self.LastName)
+	if name != "" {
+		return name
+	}
+	if self.Phone != "" {
+		return "+" + strings.TrimPrefix(self.Phone, "+")
+	}
+	return "аккаунт Telegram"
 }
 
-// Sync забирает новые сообщения. Возвращает число сохранённых.
+// Sync забирает новые сообщения из диалогов. Возвращает число сохранённых.
 func (c *Client) Sync(ingestor *ingest.Ingestor, connection *postgres.Connection) (int, error) {
-	var credentials struct {
-		BotToken string `json:"bot_token"`
-	}
+	var credentials Credentials
 	if connection.Credentials != "" {
 		_ = json.Unmarshal([]byte(connection.Credentials), &credentials)
 	}
-	if credentials.BotToken == "" {
+	if credentials.Session == "" {
 		connection.State = "reauth"
 		return 0, ingestor.DB.SaveConnection(connection)
 	}
 
-	params := map[string]any{"timeout": 0, "allowed_updates": []string{"message"}}
-	if connection.SyncCursor != "" {
-		if cursor, err := strconv.ParseInt(connection.SyncCursor, 10, 64); err == nil {
-			params["offset"] = cursor + 1
-		}
-	}
-
-	raw, err := c.Call(credentials.BotToken, "getUpdates", params)
+	storage, err := storageFrom(credentials.Session)
 	if err != nil {
-		// Неверный токен — просим переподключить; сетевой сбой — просто ждём
-		// следующего цикла.
-		log.Printf("синхронизация telegram: %v", err)
-		if strings.Contains(strings.ToLower(err.Error()), "unauthorized") {
-			connection.State = "reauth"
-			return 0, ingestor.DB.SaveConnection(connection)
-		}
-		return 0, nil
+		connection.State = "reauth"
+		return 0, ingestor.DB.SaveConnection(connection)
 	}
 
-	var updates []update
-	if err := json.Unmarshal(raw, &updates); err != nil {
-		log.Printf("синхронизация telegram: ответ getUpdates не разобрать: %v", err)
-		return 0, nil
+	// Первое подключение забирает историю за месяц, дальше — только то,
+	// что появилось с прошлого раза.
+	since := postgres.UTCNow().AddDate(0, 0, -importDays)
+	limit := importLimit
+	if connection.LastSyncAt != nil {
+		since = connection.LastSyncAt.Add(-overlap)
+		limit = historyLimit * dialogsLimit
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
 
 	saved := 0
-	var lastUpdateID *int64
-	memberCounts := map[int64]string{}
-	for _, item := range updates {
-		id := item.UpdateID
-		lastUpdateID = &id
-		if item.Message == nil {
-			continue
+	err = c.run(ctx, storage, func(ctx context.Context, api *tg.Client, _ *tgclient.Client) error {
+		count, err := c.fetch(ctx, api, ingestor, connection, since, limit)
+		saved = count
+		return err
+	})
+	if err != nil {
+		// Сессия отозвана — просим войти заново; сетевой сбой просто ждёт
+		// следующего цикла.
+		log.Printf("синхронизация telegram: %v", err)
+		if sessionRevoked(err) {
+			connection.State = "reauth"
+			return saved, ingestor.DB.SaveConnection(connection)
 		}
-		text := item.Message.Text
-		if text == "" {
-			text = item.Message.Caption
-		}
-		if text == "" {
-			// Медиа без подписи оценивать нечем — пропускаем.
-			continue
-		}
-		senderName, senderAddr := c.chatTitle(credentials.BotToken, item.Message.Chat, memberCounts)
-		message, err := ingestor.Store(connection, ingest.Incoming{
-			ExternalID: fmt.Sprintf("%d:%d", item.Message.Chat.ID, item.Message.MessageID),
-			SenderName: senderName,
-			SenderAddr: senderAddr,
-			// Для Telegram тема — первая строка сообщения (docs/03-data-model.md).
-			Subject:     firstLine(text),
-			Body:        text,
-			ReceivedAt:  time.Unix(item.Message.Date, 0).UTC(),
-			ExternalURL: externalURL(item.Message.Chat, item.Message.MessageID),
-		})
-		if err != nil {
-			return saved, err
-		}
-		if message != nil {
-			saved++
-		}
+		return saved, nil
 	}
 
-	if lastUpdateID != nil {
-		connection.SyncCursor = strconv.FormatInt(*lastUpdateID, 10)
-	}
 	now := postgres.UTCNow()
 	connection.LastSyncAt = &now
 	connection.State = "active"
 	return saved, ingestor.DB.SaveConnection(connection)
 }
 
-// firstLine — тема сообщения: первая строка, не длиннее 200 символов.
-func firstLine(text string) string {
-	line := strings.TrimSpace(text)
-	if index := strings.IndexAny(line, "\r\n"); index >= 0 {
-		line = line[:index]
+// sessionRevoked — отличает «войдите заново» от временного сбоя.
+func sessionRevoked(err error) bool {
+	text := strings.ToUpper(err.Error())
+	for _, marker := range []string{"AUTH_KEY_UNREGISTERED", "SESSION_REVOKED",
+		"SESSION_EXPIRED", "USER_DEACTIVATED", "AUTH_KEY_DUPLICATED"} {
+		if strings.Contains(text, marker) {
+			return true
+		}
 	}
-	runes := []rune(line)
-	if len(runes) > 200 {
-		return string(runes[:200])
+	return false
+}
+
+// fetch проходит по диалогам и складывает новые сообщения.
+func (c *Client) fetch(ctx context.Context, api *tg.Client, ingestor *ingest.Ingestor,
+	connection *postgres.Connection, since time.Time, limit int) (int, error) {
+	dialogs, err := api.MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
+		OffsetPeer: &tg.InputPeerEmpty{},
+		Limit:      dialogsLimit,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("%w: список диалогов: %v", exceptions.ErrTelegram, err)
 	}
-	return string(runes)
+
+	peers := collectPeers(dialogs)
+	saved := 0
+	for _, key := range peers.order {
+		if saved >= limit {
+			break
+		}
+		source := peers.byKey[key]
+		messages, err := api.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
+			Peer:  source.input,
+			Limit: historyLimit,
+		})
+		if err != nil {
+			// Один недоступный чат не должен ронять всю синхронизацию.
+			log.Printf("telegram: история чата %s: %v", key, err)
+			continue
+		}
+		for _, item := range messagesOf(messages) {
+			incoming, ok := incomingFrom(item, source)
+			if !ok || incoming.ReceivedAt.Before(since) {
+				continue
+			}
+			message, err := ingestor.Store(connection, incoming)
+			if err != nil {
+				return saved, err
+			}
+			if message != nil {
+				saved++
+			}
+		}
+	}
+	return saved, nil
 }

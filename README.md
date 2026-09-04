@@ -96,7 +96,7 @@ make test-front     # тесты фронтенда
 
 Без `OPENAI_API_KEY` сообщения всё равно попадают в ленту, но получают пометку
 «Оценка недоступна» после трёх попыток вызова модели. Без ключей Google
-подключение Gmail недоступно; Telegram работает по токену бота от @BotFather.
+подключение Gmail недоступно; Telegram требует api_id и api_hash с my.telegram.org и вход по номеру телефона.
 
 `DEMO_LIVE=1 make run` доигрывает три «новых» сообщения из референса —
 на них видно появление карточек в реальном времени через SSE.
@@ -151,7 +151,7 @@ backend/
   internal/redis/         кэш сводки/источников и state OAuth
   internal/openai/        адаптер модели: промпт, строгая схема ответа
   internal/gmail/         OAuth + History API
-  internal/telegram/      Bot API
+  internal/telegram/      клиентский API (MTProto) через gotd/td
   internal/events/        шина событий для SSE
   internal/testenv/       стенд для тестов: своя схема в Postgres и префикс в Redis
 frontend/             React 18 + TypeScript + Vite

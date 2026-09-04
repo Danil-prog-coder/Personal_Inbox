@@ -55,7 +55,7 @@ func newEnv(t *testing.T) *env {
 	queue := &fakeQueue{}
 	ingestor := ingest.New(db, bus, queue)
 	gmailClient := &gmail.Client{}
-	telegramClient := telegram.NewClient()
+	telegramClient := telegram.NewClient(0, "")
 
 	server := httptest.NewServer(
 		New(cfg, db, cache, bus, ingestor, queue, gmailClient, telegramClient).Handler())
@@ -145,6 +145,14 @@ func (e *env) user() *postgres.User {
 // Пользователь в приложении один, но фильтр по user_id в запросах остался,
 // и именно его эти данные и проверяют. Заводить строго после user():
 // LocalUser берёт самую раннюю запись.
+// telegramKeys выдаёт клиенту заведомо неверные, но заполненные ключи:
+// так проверка «ключи не заданы» пропускает запрос дальше.
+func (e *env) telegramKeys() {
+	e.t.Helper()
+	e.telegram.APIID = 1
+	e.telegram.APIHash = "тест"
+}
+
 func (e *env) otherUser() *postgres.User {
 	e.t.Helper()
 	user, err := e.db.CreateUser("")

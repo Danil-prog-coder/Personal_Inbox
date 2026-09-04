@@ -48,9 +48,9 @@ MsgStatuses = "PROCESSING" | "DONE"                      // статус оце�
 | `kind` | `SourceKind` | |
 | `state` | `ConnState` | |
 | `account` | str | `me@northline.io` / `@maxorlov` — то, что показано в UI |
-| `credentials` | text | JSON: refresh_token для Gmail, bot_token для Telegram |
+| `credentials` | text | JSON: `refresh_token` для Gmail, `session` для Telegram |
 | `last_sync_at` | datetime nullable | |
-| `sync_cursor` | str nullable | Gmail `historyId` / Telegram `update_id` |
+| `sync_cursor` | str nullable | Gmail `historyId`; Telegram обходится `last_sync_at` |
 
 Одна строка на (пользователь, сервис). Отключение источника ставит `state = off`
 и **обнуляет `credentials`**, но **не удаляет сообщения** — они остаются в ленте.
@@ -60,7 +60,7 @@ MsgStatuses = "PROCESSING" | "DONE"                      // статус оце�
 | --- | --- | --- |
 | `id` | int PK | |
 | `connection_id` | FK | |
-| `external_id` | str | id письма в Gmail / `chat_id:message_id` в Telegram |
+| `external_id` | str | id письма в Gmail / `<пир>:<id сообщения>` в Telegram |
 | `sender_name` | str | «Анна Ковалёва» |
 | `sender_addr` | str | `a.kovaleva@northline.io` / `@dmitry_pm` / `групповой чат, 9 участников` |
 | `subject` | str | тема письма; для Telegram — первая строка сообщения |
@@ -174,7 +174,8 @@ MsgStatuses = "PROCESSING" | "DONE"                      // статус оце�
 | `GET` | `/api/connections` | список с состояниями и `last_sync_at` |
 | `POST` | `/api/connections/gmail/start` | вернуть URL авторизации Google |
 | `GET` | `/api/connections/gmail/callback` | приём кода OAuth |
-| `POST` | `/api/connections/telegram` | `{bot_token}`, проверка через `getMe` |
+| `POST` | `/api/connections/telegram/start` | `{phone}`, Telegram шлёт код |
+| `POST` | `/api/connections/telegram/confirm` | `{code, password}`; `{password_needed: true}`, если включена двухфакторная |
 | `DELETE` | `/api/connections/{kind}` | отключить |
 | `GET` | `/api/sources` | карточки уровня 1: счётчики, распределение, самое срочное |
 | `GET` | `/api/messages` | `?source=&level=&status=&reply=&action=&period=&q=&tz_offset=` |

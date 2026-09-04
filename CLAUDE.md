@@ -75,11 +75,11 @@ React 18 + TypeScript + Vite · обычный CSS на переменных · 
 обычный SQL в `internal/postgres` · миграции — свои `.sql` через `embed`
 Redis 7 через `go-redis` — кэш сводки/источников и одноразовый state OAuth
 фоновые задачи — горутина с `time.Ticker` в том же процессе
-OpenAI через адаптер `backend/internal/openai/provider.go` · Gmail REST · Telegram Bot API
+OpenAI через адаптер `backend/internal/openai/provider.go` · Gmail REST · Telegram MTProto (`gotd/td`)
 `go test` (бэк) · `vitest` (фронт)
 `docker compose up --build` — весь стек: postgres + redis + бэкенд + nginx
 
-Зависимости бэкенда: драйверы Postgres и Redis, больше ничего. Веб-фреймворк, ORM,
+Зависимости бэкенда: драйверы Postgres и Redis плюс `gotd/td` для Telegram. Веб-фреймворк, ORM,
 логгер и SDK провайдеров не подключаем — остальное закрывает стандартная библиотека.
 
 Структура бэкенда:

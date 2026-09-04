@@ -74,8 +74,17 @@ export const api = {
 
   gmailAuthUrl: () => request<{ auth_url: string }>('/api/connections/gmail/start', { method: 'POST' }),
 
-  connectTelegram: (botToken: string) =>
-    request<Connection>('/api/connections/telegram', json({ bot_token: botToken })),
+  // Подключение Telegram идёт в два шага: номер → код из Telegram
+  // (и пароль, если включена двухфакторная защита).
+  telegramStart: (phone: string) =>
+    request<{ phone: string }>('/api/connections/telegram/start', json({ phone })),
+
+  // Ответ либо подключение, либо просьба ввести пароль двухфакторной защиты.
+  telegramConfirm: (code: string, password: string) =>
+    request<Connection | { password_needed: true }>(
+      '/api/connections/telegram/confirm',
+      json({ code, password }),
+    ),
 
   disconnect: (kind: SourceKind) =>
     request<void>(`/api/connections/${kind}`, { method: 'DELETE' }),

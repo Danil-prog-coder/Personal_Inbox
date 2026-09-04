@@ -26,7 +26,7 @@ const SERVICES: {
   {
     kind: 'telegram',
     name: 'Telegram',
-    hint: 'Свой бот через @BotFather',
+    hint: 'Вход в ваш аккаунт',
     letter: 'T',
     gradient: 'var(--src-tg)',
     soon: false,
@@ -58,11 +58,24 @@ interface Props {
 export function ConnectionsScreen({ connections, onChanged, onToast }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [telegramOpen, setTelegramOpen] = useState(false);
-  const [botToken, setBotToken] = useState('');
+  // Шаги входа: телефон → код → пароль (последний только при двухфакторной).
+  const [step, setStep] = useState<'phone' | 'code' | 'password'>('phone');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   const reauthCount = connections.filter((item) => item.state === 'reauth').length;
+
+  const closeTelegram = () => {
+    setTelegramOpen(false);
+    setStep('phone');
+    setPhone('');
+    setCode('');
+    setPassword('');
+    setError('');
+  };
 
   // Модальные окна закрываются с клавиатуры так же, как детали сообщения.
   useEffect(() => {
@@ -70,7 +83,7 @@ export function ConnectionsScreen({ connections, onChanged, onToast }: Props) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       setAddOpen(false);
-      setTelegramOpen(false);
+      closeTelegram();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -86,17 +99,36 @@ export function ConnectionsScreen({ connections, onChanged, onToast }: Props) {
     }
   };
 
-  const connectTelegram = async () => {
+  const sendCode = async () => {
     setBusy(true);
     setError('');
     try {
-      const connection = await api.connectTelegram(botToken.trim());
-      setTelegramOpen(false);
-      setBotToken('');
-      onChanged();
-      onToast(`Telegram подключён — ${connection.account}`);
+      await api.telegramStart(phone.trim());
+      setStep('code');
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Не удалось подключить бота');
+      setError(caught instanceof ApiError ? caught.message : 'Не удалось отправить код');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmCode = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.telegramConfirm(code.trim(), password);
+      if ('password_needed' in result) {
+        setStep('password');
+        return;
+      }
+      closeTelegram();
+      onChanged();
+      onToast(`Telegram подключён — ${result.account}`);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Не удалось подключить Telegram');
+      // Код одноразовый: сервер его уже забрал, повтор возможен только
+      // с новым кодом.
+      if (caught instanceof ApiError && caught.status === 400) setStep('phone');
     } finally {
       setBusy(false);
     }
@@ -246,7 +278,7 @@ export function ConnectionsScreen({ connections, onChanged, onToast }: Props) {
             type="button"
             className="overlay"
             aria-label="Закрыть подключение Telegram"
-            onClick={() => setTelegramOpen(false)}
+            onClick={closeTelegram}
           />
           <div className="modal" role="dialog" aria-modal="true" aria-label="Подключение Telegram">
             <div className="modal__head">
@@ -255,43 +287,98 @@ export function ConnectionsScreen({ connections, onChanged, onToast }: Props) {
                 type="button"
                 className="btn-close"
                 aria-label="Закрыть"
-                onClick={() => setTelegramOpen(false)}
+                onClick={closeTelegram}
               >
                 <Icon name="close" size={15} />
               </button>
             </div>
-            <p className="panel__hint" style={{ padding: '0 4px' }}>
-              1. Создайте бота через @BotFather и скопируйте токен.
-              <br />
-              2. Вставьте токен сюда — проверим его и покажем имя бота.
-              <br />
-              3. Добавьте бота в чаты, которые хотите видеть в ленте.
-            </p>
-            <div className="warn-note" style={{ width: 'auto' }}>
-              <span className="warn-note__icon">
-                <Icon name="warn" size={14} />
-              </span>
-              Бот видит только те чаты, куда его добавили, и не видит вашу личную переписку.
-              История до добавления бота недоступна.
-            </div>
-            <label className="field">
-              <span className="field__label">Токен бота</span>
-              <input
-                className="field__input"
-                value={botToken}
-                onChange={(event) => setBotToken(event.target.value)}
-                placeholder="123456789:AA..."
-              />
-            </label>
+            {step === 'phone' && (
+              <>
+                <p className="panel__hint" style={{ padding: '0 4px' }}>
+                  Вход в ваш аккаунт Telegram — тот же, что в официальном приложении.
+                  Пришлём код подтверждения, как при входе на новом устройстве.
+                </p>
+                <div className="warn-note" style={{ width: 'auto' }}>
+                  <span className="warn-note__icon">
+                    <Icon name="warn" size={14} />
+                  </span>
+                  Приложение получит доступ ко всей переписке аккаунта и будет хранить
+                  ключ сессии в своей базе. Держите его так же, как пароль.
+                </div>
+                <label className="field">
+                  <span className="field__label">Номер телефона</span>
+                  <input
+                    className="field__input"
+                    type="tel"
+                    autoComplete="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="+7 999 000-00-00"
+                  />
+                </label>
+              </>
+            )}
+
+            {step === 'code' && (
+              <>
+                <p className="panel__hint" style={{ padding: '0 4px' }}>
+                  Код отправлен в Telegram на номер {phone.trim()}. Ищите его в чате
+                  «Telegram», а не в SMS.
+                </p>
+                <label className="field">
+                  <span className="field__label">Код из Telegram</span>
+                  <input
+                    className="field__input"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={code}
+                    onChange={(event) => setCode(event.target.value)}
+                    placeholder="12345"
+                  />
+                </label>
+              </>
+            )}
+
+            {step === 'password' && (
+              <>
+                <p className="panel__hint" style={{ padding: '0 4px' }}>
+                  У аккаунта включена двухфакторная защита. Введите облачный пароль —
+                  тот, который Telegram спрашивает после кода.
+                </p>
+                <label className="field">
+                  <span className="field__label">Облачный пароль</span>
+                  <input
+                    className="field__input"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </label>
+              </>
+            )}
+
             {error && <span className="auth__error">{error}</span>}
-            <button
-              type="button"
-              className="btn-primary"
-              disabled={busy || botToken.trim().length < 10}
-              onClick={connectTelegram}
-            >
-              Проверить и подключить
-            </button>
+
+            {step === 'phone' ? (
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={busy || phone.trim().length < 5}
+                onClick={sendCode}
+              >
+                Получить код
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={busy || (step === 'code' ? code.trim() === '' : password === '')}
+                onClick={confirmCode}
+              >
+                {step === 'code' ? 'Подтвердить' : 'Войти'}
+              </button>
+            )}
           </div>
         </Portal>
       )}
