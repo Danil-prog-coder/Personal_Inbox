@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"os"
 	"testing"
-	"time"
 )
 
 // newClient — свой префикс ключей на каждый тест. Свой хелпер, а не
@@ -35,103 +34,63 @@ func newClient(t *testing.T) *Client {
 	return client
 }
 
-func TestSessionRoundTrip(t *testing.T) {
+func TestOAuthStateRoundTrip(t *testing.T) {
 	client := newClient(t)
 	ctx := context.Background()
 
-	token, err := client.NewSession(ctx, Session{UserID: 42}, time.Minute)
+	state, err := client.NewOAuthState(ctx, 42)
 	if err != nil {
-		t.Fatalf("создать сессию: %v", err)
+		t.Fatalf("завести state: %v", err)
 	}
-	if token == "" {
-		t.Fatal("пустой токен")
+	if state == "" {
+		t.Fatal("пустой state")
 	}
-	value, ok := client.Session(ctx, token)
-	if !ok || value.UserID != 42 {
-		t.Fatalf("сессия не прочиталась: %+v ok=%v", value, ok)
+	if got := client.TakeOAuthState(ctx, 42); got != state {
+		t.Fatalf("прочитан %q вместо %q", got, state)
 	}
 }
 
-func TestSessionTokensAreUnique(t *testing.T) {
+func TestOAuthStateIsSingleUse(t *testing.T) {
 	client := newClient(t)
 	ctx := context.Background()
 
-	seen := make(map[string]bool, 50)
-	for i := 0; i < 50; i++ {
-		token, err := client.NewSession(ctx, Session{UserID: 1}, time.Minute)
+	if _, err := client.NewOAuthState(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+	if first := client.TakeOAuthState(ctx, 1); first == "" {
+		t.Fatal("state не прочитался с первого раза")
+	}
+	// Повторный ответ Google с тем же state не должен проходить.
+	if second := client.TakeOAuthState(ctx, 1); second != "" {
+		t.Fatalf("state пережил чтение: %q", second)
+	}
+}
+
+func TestOAuthStatesAreUniqueAndPerUser(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+
+	seen := make(map[string]bool, 30)
+	for i := range 30 {
+		state, err := client.NewOAuthState(ctx, int64(i))
 		if err != nil {
-			t.Fatalf("создать сессию: %v", err)
+			t.Fatal(err)
 		}
-		if seen[token] {
-			t.Fatalf("токен повторился: %s", token)
+		if seen[state] {
+			t.Fatalf("state повторился: %s", state)
 		}
-		seen[token] = true
+		seen[state] = true
+	}
+	// Чужой state не подходит: ключ свой у каждого id.
+	if got := client.TakeOAuthState(ctx, 100); got != "" {
+		t.Fatalf("нашёлся state у пользователя без запроса: %q", got)
 	}
 }
 
-func TestUnknownTokenIsNotASession(t *testing.T) {
+func TestMissingOAuthStateIsEmpty(t *testing.T) {
 	client := newClient(t)
-	ctx := context.Background()
-
-	for _, token := range []string{"", "выдуманный", "AAAAAAAAAAAAAAAAAAAAAAAA"} {
-		if _, ok := client.Session(ctx, token); ok {
-			t.Fatalf("чужой токен %q принят за сессию", token)
-		}
-	}
-}
-
-func TestDropSessionEndsIt(t *testing.T) {
-	client := newClient(t)
-	ctx := context.Background()
-
-	token, err := client.NewSession(ctx, Session{UserID: 7}, time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := client.DropSession(ctx, token); err != nil {
-		t.Fatalf("погасить сессию: %v", err)
-	}
-	if _, ok := client.Session(ctx, token); ok {
-		t.Fatal("сессия жива после выхода")
-	}
-	// Повторный выход — не ошибка: пользователь мог нажать «выйти» дважды.
-	if err := client.DropSession(ctx, token); err != nil {
-		t.Fatalf("повторный выход вернул ошибку: %v", err)
-	}
-}
-
-func TestExpiredSessionIsGone(t *testing.T) {
-	client := newClient(t)
-	ctx := context.Background()
-
-	token, err := client.NewSession(ctx, Session{UserID: 9}, 50*time.Millisecond)
-	if err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(120 * time.Millisecond)
-	if _, ok := client.Session(ctx, token); ok {
-		t.Fatal("просроченная сессия всё ещё принимается")
-	}
-}
-
-func TestSaveSessionKeepsToken(t *testing.T) {
-	client := newClient(t)
-	ctx := context.Background()
-
-	token, err := client.NewSession(ctx, Session{UserID: 3}, time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := client.SaveSession(ctx, token, Session{UserID: 3, OAuthState: "abc"}, time.Minute); err != nil {
-		t.Fatalf("сохранить сессию: %v", err)
-	}
-	value, ok := client.Session(ctx, token)
-	if !ok || value.OAuthState != "abc" || value.UserID != 3 {
-		t.Fatalf("сессия после правки: %+v ok=%v", value, ok)
-	}
-	// Пустой токен — ошибка, а не молчаливая запись в ключ "session:".
-	if err := client.SaveSession(ctx, "", Session{UserID: 3}, time.Minute); err == nil {
-		t.Fatal("запись по пустому токену прошла")
+	if got := client.TakeOAuthState(context.Background(), 777); got != "" {
+		t.Fatalf("на пустом месте вернулся %q", got)
 	}
 }
 

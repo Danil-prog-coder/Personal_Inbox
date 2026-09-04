@@ -17,13 +17,9 @@ import (
 	"personalinbox/internal/schemas"
 )
 
-// Вход в демо-ленту.
-const (
-	DemoEmail    = "demo@personal.inbox"
-	DemoPassword = "demo12345"
-	DemoCriteria = "Важны письма от клиентов Northline, всё про договоры и сроки, " +
-		"сообщения от команды с блокерами. Рассылки и уведомления сервисов — неважно."
-)
+// DemoCriteria — критерии важности, с которыми заливается демо-лента.
+const DemoCriteria = "Важны письма от клиентов Northline, всё про договоры и сроки, " +
+	"сообщения от команды с блокерами. Рассылки и уведомления сервисов — неважно."
 
 // Accounts — то, что показано в UI на карточках источников.
 var Accounts = map[string]string{"gmail": "me@northline.io", "telegram": "@maxorlov"}
@@ -270,17 +266,21 @@ func externalURL(kind, addr, externalID string) string {
 	return ""
 }
 
-// GetOrCreateUser — демо-пользователь. Пароль хешируется вызывающей стороной:
-// пакет seed не должен знать про bcrypt.
-func GetOrCreateUser(db *postgres.DB, passwordHash string) (*postgres.User, error) {
-	user, err := db.UserByEmail(DemoEmail)
-	if err == nil {
-		return user, nil
-	}
-	if !errors.Is(err, exceptions.ErrNotFound) {
+// GetOrCreateUser — тот самый единственный пользователь установки. На пустой
+// базе он создаётся сразу с демо-критериями: иначе первая же демо-лента
+// оценивалась бы «на общих основаниях».
+func GetOrCreateUser(db *postgres.DB) (*postgres.User, error) {
+	user, err := db.LocalUser()
+	if err != nil {
 		return nil, err
 	}
-	return db.CreateUser(DemoEmail, passwordHash, DemoCriteria)
+	if user.Criteria == "" {
+		user.Criteria = DemoCriteria
+		if err := db.SaveUser(user); err != nil {
+			return nil, err
+		}
+	}
+	return user, nil
 }
 
 // GetOrCreateConnection — источник демо-ленты вместе с состоянием из референса.
@@ -302,11 +302,11 @@ func GetOrCreateConnection(db *postgres.DB, user *postgres.User, kind string) (*
 }
 
 // Seed заливает демо-ленту. Повторный запуск ничего не дублирует.
-func Seed(db *postgres.DB, passwordHash string, now time.Time) (int, error) {
+func Seed(db *postgres.DB, now time.Time) (int, error) {
 	if now.IsZero() {
 		now = postgres.UTCNow()
 	}
-	user, err := GetOrCreateUser(db, passwordHash)
+	user, err := GetOrCreateUser(db)
 	if err != nil {
 		return 0, err
 	}
@@ -361,11 +361,11 @@ func Seed(db *postgres.DB, passwordHash string, now time.Time) (int, error) {
 // PlayLiveQueue проигрывает очередь «новых» сообщений: карточка появляется
 // в PROCESSING и через пару секунд достраивается. Работает только внутри
 // процесса сервера — события SSE живут в его памяти.
-func PlayLiveQueue(db *postgres.DB, bus *events.Bus, passwordHash string,
+func PlayLiveQueue(db *postgres.DB, bus *events.Bus,
 	firstDelay, interval, analyzeDelay time.Duration) {
 	time.Sleep(firstDelay)
 	for index, template := range LiveQueue {
-		if err := playOne(db, bus, passwordHash, index, template, analyzeDelay); err != nil {
+		if err := playOne(db, bus, index, template, analyzeDelay); err != nil {
 			return
 		}
 		if index < len(LiveQueue)-1 {
@@ -374,9 +374,9 @@ func PlayLiveQueue(db *postgres.DB, bus *events.Bus, passwordHash string,
 	}
 }
 
-func playOne(db *postgres.DB, bus *events.Bus, passwordHash string, index int,
+func playOne(db *postgres.DB, bus *events.Bus, index int,
 	template LiveItem, analyzeDelay time.Duration) error {
-	user, err := GetOrCreateUser(db, passwordHash)
+	user, err := GetOrCreateUser(db)
 	if err != nil {
 		return err
 	}

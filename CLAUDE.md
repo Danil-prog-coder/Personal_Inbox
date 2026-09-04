@@ -71,15 +71,15 @@
 ## Стек
 
 React 18 + TypeScript + Vite · обычный CSS на переменных · `react-router-dom`
-**Go 1.24 + `net/http`** · PostgreSQL 16 через `database/sql` и `pgx`
+**Go 1.25 + `net/http`** · PostgreSQL 16 через `database/sql` и `pgx`
 обычный SQL в `internal/postgres` · миграции — свои `.sql` через `embed`
-Redis 7 через `go-redis` — серверные сессии и кэш сводки/источников
+Redis 7 через `go-redis` — кэш сводки/источников и одноразовый state OAuth
 фоновые задачи — горутина с `time.Ticker` в том же процессе
-OpenAI через адаптер `backend/internal/openai/provider.go` · Gmail REST · Telegram Bot API
+OpenAI через адаптер `backend/internal/openai/provider.go` · Gmail REST · Telegram MTProto (`gotd/td`)
 `go test` (бэк) · `vitest` (фронт)
 `docker compose up --build` — весь стек: postgres + redis + бэкенд + nginx
 
-Зависимости бэкенда: драйверы Postgres и Redis плюс `bcrypt`. Веб-фреймворк, ORM,
+Зависимости бэкенда: драйверы Postgres и Redis плюс `gotd/td` для Telegram. Веб-фреймворк, ORM,
 логгер и SDK провайдеров не подключаем — остальное закрывает стандартная библиотека.
 
 Структура бэкенда:
@@ -87,13 +87,12 @@ OpenAI через адаптер `backend/internal/openai/provider.go` · Gmail 
 backend/
   cmd/server      точка входа, cmd/seed — демо-данные
   internal/core       настройки            internal/exceptions  сквозные ошибки
-  internal/routers    маршруты и ручки, session.go — подписанная cookie
+  internal/routers    маршруты и ручки, user.go — единственный пользователь
   internal/schemas    схемы ответов        internal/events      шина событий для SSE
   internal/postgres   база: модели, SQL, миграции, фильтры ленты
-  internal/redis      сессии и кэш
+  internal/redis      кэш и state OAuth
   internal/openai     адаптер модели       internal/gmail  ·  internal/telegram
   internal/services   analysis · ingest · scheduler · seed
-  internal/utils      security — пароли
 ```
 
 Простота важнее правильности «по-взрослому»: это pet-проект.

@@ -10,16 +10,10 @@ import (
 	"personalinbox/internal/schemas"
 )
 
-func TestStreamRequiresAuth(t *testing.T) {
-	e := newEnv(t)
-	if status, _ := e.do(http.MethodGet, "/api/stream", nil); status != http.StatusUnauthorized {
-		t.Fatalf("поток без входа вернул %d", status)
-	}
-}
-
+// Входа нет: поток открывается без всякой подготовки (решение №50).
 func TestStreamSendsNewEvents(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 
 	request, err := http.NewRequest(http.MethodGet, e.server.URL+"/api/stream", nil)
@@ -81,8 +75,8 @@ func TestStreamSendsNewEvents(t *testing.T) {
 
 func TestStreamSkipsEventsOfOtherUsers(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
-	stranger := e.user("other@northline.io")
+	user := e.user()
+	stranger := e.otherUser()
 
 	cursor := e.bus.Cursor()
 	e.bus.Publish(stranger.ID, "message.created", map[string]string{"subject": "чужое"})

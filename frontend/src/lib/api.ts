@@ -1,4 +1,6 @@
-/** Обёртки над HTTP API. Сессия — cookie, поэтому credentials обязательны. */
+/** Обёртки над HTTP API. Входа нет: приложение локальное и обслуживает одного
+ * пользователя, сервер узнаёт его сам (решение №50). credentials оставлены —
+ * запрос уходит на тот же origin и лишними не бывают. */
 import type {
   Connection,
   Density,
@@ -60,23 +62,9 @@ function errorMessage(data: unknown, status: number): string {
 const json = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) });
 
 export const api = {
-  register: (email: string, password: string) =>
-    request<User>('/api/auth/register', json({ email, password })),
-
-  login: (email: string, password: string) =>
-    request<User>('/api/auth/login', json({ email, password })),
-
-  logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
-
   me: () => request<User>('/api/me'),
 
-  updateMe: (patch: {
-    criteria?: string;
-    theme?: Theme;
-    density?: Density;
-    current_password?: string;
-    new_password?: string;
-  }) =>
+  updateMe: (patch: { criteria?: string; theme?: Theme; density?: Density }) =>
     request<{ user: User; reanalyze_queued: number }>('/api/me', {
       method: 'PATCH',
       body: JSON.stringify(patch),
@@ -86,8 +74,17 @@ export const api = {
 
   gmailAuthUrl: () => request<{ auth_url: string }>('/api/connections/gmail/start', { method: 'POST' }),
 
-  connectTelegram: (botToken: string) =>
-    request<Connection>('/api/connections/telegram', json({ bot_token: botToken })),
+  // Подключение Telegram идёт в два шага: номер → код из Telegram
+  // (и пароль, если включена двухфакторная защита).
+  telegramStart: (phone: string) =>
+    request<{ phone: string }>('/api/connections/telegram/start', json({ phone })),
+
+  // Ответ либо подключение, либо просьба ввести пароль двухфакторной защиты.
+  telegramConfirm: (code: string, password: string) =>
+    request<Connection | { password_needed: true }>(
+      '/api/connections/telegram/confirm',
+      json({ code, password }),
+    ),
 
   disconnect: (kind: SourceKind) =>
     request<void>(`/api/connections/${kind}`, { method: 'DELETE' }),

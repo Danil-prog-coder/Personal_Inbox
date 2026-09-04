@@ -9,7 +9,7 @@ import (
 
 func TestUpdateThemeAndDensity(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, raw := e.do(http.MethodPatch, "/api/me",
 		map[string]string{"theme": "light", "density": "compact"})
 	if status != http.StatusOK {
@@ -27,7 +27,7 @@ func TestUpdateThemeAndDensity(t *testing.T) {
 
 func TestUnknownThemeIsRejected(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, _ := e.do(http.MethodPatch, "/api/me", map[string]string{"theme": "сумерки"})
 	if status != http.StatusUnprocessableEntity {
 		t.Fatalf("неизвестная тема вернула %d", status)
@@ -36,7 +36,7 @@ func TestUnknownThemeIsRejected(t *testing.T) {
 
 func TestCriteriaChangeQueuesReanalysis(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	first := e.message(connection, nil)
 	second := e.message(connection, nil)
@@ -67,7 +67,7 @@ func TestCriteriaChangeQueuesReanalysis(t *testing.T) {
 
 func TestManualOverrideSurvivesReanalysis(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	message := e.message(connection, func(m *messageModel) {
 		m.Level = "LOW"
@@ -89,7 +89,7 @@ func TestManualOverrideSurvivesReanalysis(t *testing.T) {
 
 func TestSameCriteriaDoesNotQueueReanalysis(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, nil)
 
@@ -105,59 +105,25 @@ func TestSameCriteriaDoesNotQueueReanalysis(t *testing.T) {
 	}
 }
 
-func TestPasswordChangeRequiresCurrentPassword(t *testing.T) {
-	e := newEnv(t)
-	e.authorized()
-	status, raw := e.do(http.MethodPatch, "/api/me", map[string]string{
-		"current_password": "неверный",
-		"new_password":     "новыйпароль123",
-	})
-	if status != http.StatusBadRequest {
-		t.Fatalf("неверный текущий пароль вернул %d", status)
-	}
-	if e.detail(raw) != "Текущий пароль неверен" {
-		t.Fatalf("текст ошибки: %q", e.detail(raw))
-	}
-}
-
-func TestPasswordChangeWorks(t *testing.T) {
-	e := newEnv(t)
-	user := e.authorized()
-	status, _ := e.do(http.MethodPatch, "/api/me", map[string]string{
-		"current_password": testPassword,
-		"new_password":     "новыйпароль123",
-	})
-	if status != http.StatusOK {
-		t.Fatalf("смена пароля вернула %d", status)
-	}
-	if status, _ := e.do(http.MethodPost, "/api/auth/login", map[string]string{
-		"email": user.Email, "password": "новыйпароль123",
-	}); status != http.StatusOK {
-		t.Fatalf("вход с новым паролем вернул %d", status)
-	}
-	if status, _ := e.do(http.MethodPost, "/api/auth/login", map[string]string{
-		"email": user.Email, "password": testPassword,
-	}); status != http.StatusUnauthorized {
-		t.Fatal("старый пароль должен перестать работать")
-	}
-}
-
-func TestShortNewPasswordIsRejected(t *testing.T) {
-	e := newEnv(t)
-	e.authorized()
-	status, _ := e.do(http.MethodPatch, "/api/me", map[string]string{
-		"current_password": testPassword,
-		"new_password":     "1234",
-	})
-	if status != http.StatusUnprocessableEntity {
-		t.Fatalf("короткий новый пароль вернул %d", status)
-	}
-}
-
-func TestUpdateMeRequiresAuth(t *testing.T) {
+// Ни входа, ни cookie: чистая установка сразу отвечает профилем,
+// а не требованием войти (решение №50).
+func TestProfileWorksWithoutAnyLogin(t *testing.T) {
 	e := newEnv(t)
 	status, _ := e.do(http.MethodPatch, "/api/me", map[string]string{"theme": "light"})
-	if status != http.StatusUnauthorized {
-		t.Fatalf("без входа ожидался 401, получен %d", status)
+	if status != http.StatusOK {
+		t.Fatalf("PATCH /api/me без входа вернул %d", status)
+	}
+
+	var profile schemas.User
+	status, raw := e.do(http.MethodGet, "/api/me", nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET /api/me без входа вернул %d", status)
+	}
+	e.decode(raw, &profile)
+	if profile.Theme != "light" {
+		t.Fatalf("тема не сохранилась: %q", profile.Theme)
+	}
+	if profile.ID == 0 {
+		t.Fatal("профиль пустой: пользователь не завёлся сам")
 	}
 }

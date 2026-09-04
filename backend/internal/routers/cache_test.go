@@ -12,7 +12,7 @@ import (
 
 func TestMarkReadInvalidatesSourceCounters(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	message := e.message(connection, func(m *messageModel) { m.IsRead = false })
 	e.message(connection, func(m *messageModel) { m.IsRead = false })
@@ -34,7 +34,7 @@ func TestMarkReadInvalidatesSourceCounters(t *testing.T) {
 
 func TestLevelChangeInvalidatesSummary(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	message := e.message(connection, func(m *messageModel) { m.Level = "LOW" })
 
@@ -58,7 +58,7 @@ func TestLevelChangeInvalidatesSummary(t *testing.T) {
 
 func TestNewMessageInvalidatesSourceCounters(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) {})
 
@@ -72,23 +72,5 @@ func TestNewMessageInvalidatesSourceCounters(t *testing.T) {
 
 	if total := e.cards()[0].Total; total != 2 {
 		t.Fatalf("после приёма всего %d, ожидали 2 — кэш не сброшен", total)
-	}
-}
-
-func TestSummaryCacheIsPerUser(t *testing.T) {
-	e := newEnv(t)
-	first := e.authorized()
-	connection := e.connection(first, "gmail", "active")
-	e.message(connection, func(m *messageModel) { m.Level = "CRITICAL" })
-
-	if total := e.summary("24h").Total; total != 1 {
-		t.Fatalf("у первого пользователя в сводке %d сообщений", total)
-	}
-
-	// Второй пользователь не должен увидеть чужую сводку из кэша.
-	e.user("other@northline.io")
-	e.login("other@northline.io")
-	if total := e.summary("24h").Total; total != 0 {
-		t.Fatalf("второй пользователь увидел чужую сводку: %d сообщений", total)
 	}
 }

@@ -1,7 +1,7 @@
-// Package redis — сессии и кэш. Сессия живёт на сервере, а не в подписанной
-// cookie: только так выход по-настоящему гасит сессию, а не полагается на то,
-// что браузер выбросит куку. Кэш снимает повторный пересчёт сводки и счётчиков
-// источников, которые фронт дёргает на каждом переключении вкладки.
+// Package redis — кэш и одноразовый state OAuth. Кэш снимает повторный
+// пересчёт сводки и счётчиков источников, которые фронт дёргает на каждом
+// переключении вкладки. Сессий здесь больше нет: входа в приложение нет тоже
+// (решение №50).
 package redis
 
 import (
@@ -25,15 +25,9 @@ type Client struct {
 	prefix string
 }
 
-// Session — то, что сервер помнит о вошедшем пользователе.
-type Session struct {
-	UserID     int64  `json:"user_id"`
-	OAuthState string `json:"oauth_state,omitempty"`
-}
-
 // Open разбирает адрес, подключается и проверяет связь. Redis обязателен:
-// без него нельзя ни войти, ни удержать сессию, поэтому падаем на старте,
-// а не на первом запросе пользователя.
+// на нём держится кэш и подтверждение подключения Gmail, поэтому падаем
+// на старте, а не на первом запросе пользователя.
 func Open(url string) (*Client, error) {
 	return OpenWithPrefix(url, "")
 }
@@ -60,69 +54,69 @@ func (c *Client) Close() error {
 	return c.rdb.Close()
 }
 
-// ── Сессии ──────────────────────────────────────────────────────────────
+// ── Одноразовый state OAuth ─────────────────────────────────────────────
 
-func (c *Client) sessionKey(token string) string {
-	return c.prefix + "session:" + token
+// OAuthStateTTL — сколько ждём возврата от Google. Больше не нужно: дольше
+// пользователь по вкладке согласия не ходит, а протухший state безопаснее
+// висящего.
+const OAuthStateTTL = 10 * time.Minute
+
+func (c *Client) oauthKey(userID int64) string {
+	return fmt.Sprintf("%soauth:%d", c.prefix, userID)
 }
 
-// NewSession заводит сессию и возвращает непрозрачный токен для cookie.
-// Токен случайный: по нему нельзя ничего восстановить, вся полезная нагрузка
-// лежит на сервере.
-func (c *Client) NewSession(ctx context.Context, value Session, ttl time.Duration) (string, error) {
-	raw := make([]byte, 32)
+// NewOAuthState заводит случайный state и запоминает его за пользователем.
+// Возвращается сама строка: её кладут в ссылку на согласие Google.
+func (c *Client) NewOAuthState(ctx context.Context, userID int64) (string, error) {
+	raw := make([]byte, 24)
 	if _, err := rand.Read(raw); err != nil {
-		return "", fmt.Errorf("генерация токена: %w", err)
+		return "", fmt.Errorf("генерация state: %w", err)
 	}
-	token := base64.RawURLEncoding.EncodeToString(raw)
-
-	payload, err := json.Marshal(value)
-	if err != nil {
-		return "", err
+	state := base64.RawURLEncoding.EncodeToString(raw)
+	if err := c.rdb.Set(ctx, c.oauthKey(userID), state, OAuthStateTTL).Err(); err != nil {
+		return "", fmt.Errorf("запись state: %w", err)
 	}
-	if err := c.rdb.Set(ctx, c.sessionKey(token), payload, ttl).Err(); err != nil {
-		return "", fmt.Errorf("запись сессии: %w", err)
-	}
-	return token, nil
+	return state, nil
 }
 
-// Session читает сессию по токену. Второе значение — false, если сессии нет
-// или она истекла: для вызывающего это одно и то же «входа нет».
-func (c *Client) Session(ctx context.Context, token string) (Session, bool) {
-	if token == "" {
-		return Session{}, false
-	}
-	payload, err := c.rdb.Get(ctx, c.sessionKey(token)).Bytes()
+// TakeOAuthState забирает state и сразу удаляет его: он одноразовый, повтор
+// того же ответа Google второй раз не пройдёт. Пусто — значит запроса не было
+// или он протух.
+func (c *Client) TakeOAuthState(ctx context.Context, userID int64) string {
+	state, err := c.rdb.GetDel(ctx, c.oauthKey(userID)).Result()
 	if err != nil {
-		return Session{}, false
+		return ""
 	}
-	var value Session
-	if err := json.Unmarshal(payload, &value); err != nil {
-		return Session{}, false
-	}
-	return value, true
+	return state
 }
 
-// SaveSession перезаписывает сессию, не меняя токен: нужно, чтобы положить
-// oauth_state в уже существующую сессию.
-func (c *Client) SaveSession(ctx context.Context, token string, value Session, ttl time.Duration) error {
-	if token == "" {
-		return fmt.Errorf("пустой токен сессии")
-	}
+// ── Незавершённый вход в Telegram ───────────────────────────────────────
+
+// PendingTTL — сколько ждём ввода кода из Telegram. Внутри лежит сессия
+// с ключом шифрования, поэтому хранится она ровно до конца входа.
+const PendingTTL = 10 * time.Minute
+
+func (c *Client) pendingKey(userID int64) string {
+	return fmt.Sprintf("%stg-login:%d", c.prefix, userID)
+}
+
+// SavePending запоминает состояние между «отправили код» и «ввели код».
+func (c *Client) SavePending(ctx context.Context, userID int64, value any) error {
 	payload, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
-	return c.rdb.Set(ctx, c.sessionKey(token), payload, ttl).Err()
+	return c.rdb.Set(ctx, c.pendingKey(userID), payload, PendingTTL).Err()
 }
 
-// DropSession гасит сессию при выходе — здесь и заканчивается вход,
-// а не в момент, когда браузер решит удалить cookie.
-func (c *Client) DropSession(ctx context.Context, token string) error {
-	if token == "" {
-		return nil
+// TakePending забирает состояние и сразу удаляет его: код одноразовый,
+// второй попытки с тем же состоянием быть не должно.
+func (c *Client) TakePending(ctx context.Context, userID int64, out any) bool {
+	payload, err := c.rdb.GetDel(ctx, c.pendingKey(userID)).Bytes()
+	if err != nil {
+		return false
 	}
-	return c.rdb.Del(ctx, c.sessionKey(token)).Err()
+	return json.Unmarshal(payload, out) == nil
 }
 
 // ── Кэш ─────────────────────────────────────────────────────────────────

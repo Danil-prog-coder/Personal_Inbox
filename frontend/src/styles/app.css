@@ -370,29 +370,6 @@ textarea:focus-visible {
   text-align: left;
 }
 
-.rail__user {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 11px 12px;
-  border-radius: 16px;
-  background: var(--fill);
-  border: 1px solid var(--stroke2);
-}
-
-.rail__avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(150deg, #ff9f0a, #d6006c);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font: 600 13px/1 system-ui, sans-serif;
-  color: #fff;
-}
-
 .rail__spacer {
   flex: 1;
 }
@@ -1679,10 +1656,6 @@ textarea:focus-visible {
   padding: 0;
 }
 
-.field__input--password {
-  letter-spacing: 0.18em;
-}
-
 .textarea-panel {
   border-radius: 19px;
   background: var(--fill);
@@ -1752,33 +1725,6 @@ textarea:focus-visible {
   max-width: 460px;
 }
 
-.auth__brand {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-}
-
-.auth__brand-mark {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: var(--glass);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid var(--stroke);
-  box-shadow: inset 0 1px 0 var(--hi);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.auth__brand-name {
-  font: 600 14px/1 system-ui, sans-serif;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ink3);
-}
-
 .auth__title {
   margin: 6px 0 0;
   font: 600 clamp(30px, 4vw, 40px) / 1.08 system-ui, sans-serif;
@@ -1800,48 +1746,10 @@ textarea:focus-visible {
   max-width: 460px;
 }
 
-.auth__fields {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 8px;
-  border-radius: 26px;
-  background: var(--glass);
-  backdrop-filter: blur(36px) saturate(200%);
-  -webkit-backdrop-filter: blur(36px) saturate(200%);
-  border: 1px solid var(--stroke);
-  box-shadow: inset 0 1px 0 var(--hi), var(--sh);
-}
-
 .auth__error {
   font: 500 13px/1.4 system-ui, sans-serif;
   color: var(--crit-ink);
   padding: 0 4px;
-}
-
-/* Кнопка входа в референсе крупнее общей первичной. */
-.auth__submit {
-  margin-top: 4px;
-  padding: 16px 22px;
-  font: 600 15.5px/1 system-ui, sans-serif;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 12px 30px rgba(10, 111, 224, 0.45);
-}
-
-.auth__submit:hover {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 16px 36px rgba(10, 111, 224, 0.58);
-}
-
-.auth__switch {
-  border: 0;
-  background: transparent;
-  padding: 10px;
-  font: 500 14px/1 system-ui, sans-serif;
-  color: var(--ink2);
-  transition: 0.2s;
-}
-
-.auth__switch:hover {
-  color: var(--ink);
 }
 
 .criteria-panel {
@@ -1904,7 +1812,15 @@ textarea:focus-visible {
   transform: translate(-50%, -50%);
   width: min(460px, 86%);
   border-radius: 28px;
-  animation: glassIn 0.34s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  /* Своя анимация, а не общая glassIn: та заканчивается на
+     `transform: none` и затирает центрирующий translate(-50%, -50%) —
+     лист съезжал вниз на половину своей высоты и упирался в край экрана. */
+  animation: modalIn 0.34s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  /* На низком окне список не должен уезжать за край: лист упирается
+     в высоту экрана и прокручивается внутри себя. */
+  max-height: 86vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modal__head {
@@ -2044,6 +1960,7 @@ textarea:focus-visible {
     width: auto;
     transform: none;
     border-radius: 32px;
+    max-height: calc(100vh - 16px);
     animation: dropIn 0.34s cubic-bezier(0.2, 1.1, 0.3, 1) both;
   }
 
@@ -2081,4 +1998,67 @@ textarea:focus-visible {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ── Экран падения интерфейса (ErrorBoundary) ───────────────────────── */
+
+.crash {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.crash__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 420px;
+  padding: 28px;
+  border-radius: 26px;
+  animation: glassIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.crash__mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--warn-ink);
+  background: var(--fill);
+  border: 1px solid var(--stroke2);
+}
+
+.crash__title {
+  margin: 0;
+  font: 600 24px/1.15 system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.crash__text {
+  margin: 0;
+  font: 400 15px/1.45 system-ui, sans-serif;
+  color: var(--ink2);
+  text-wrap: pretty;
+}
+
+.crash__button {
+  margin-top: 6px;
+}
+
+/* Центрирование живёт в самом transform, поэтому и в кадрах анимации тоже. */
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 14px)) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }

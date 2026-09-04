@@ -1,8 +1,6 @@
 package routers
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -10,18 +8,9 @@ import (
 	"strings"
 
 	"personalinbox/internal/postgres"
-	"personalinbox/internal/redis"
 	"personalinbox/internal/schemas"
+	"personalinbox/internal/telegram"
 )
-
-// randomState — одноразовое значение state для OAuth: защита от подмены ответа.
-func randomState() string {
-	raw := make([]byte, 16)
-	if _, err := rand.Read(raw); err != nil {
-		return "personal-inbox-state"
-	}
-	return base64.RawURLEncoding.EncodeToString(raw)
-}
 
 // handleListConnections: оба источника всегда в списке, неподключённый
 // показывается как off.
@@ -56,16 +45,14 @@ func (s *Server) handleGmailStart(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	state := randomState()
+	state, err := s.cache.NewOAuthState(r.Context(), user.ID)
+	if err != nil {
+		fail(w, http.StatusServiceUnavailable, "Хранилище недоступно")
+		return
+	}
 	authURL, err := s.gmail.AuthURL(state)
 	if err != nil {
 		fail(w, http.StatusServiceUnavailable, err.Error())
-		return
-	}
-	// state кладётся в уже существующую сессию: токен и вход не меняются.
-	_, token := s.session(r)
-	if err := s.saveSession(r, token, redis.Session{UserID: user.ID, OAuthState: state}); err != nil {
-		fail(w, http.StatusServiceUnavailable, "Хранилище сессий недоступно")
 		return
 	}
 	respond(w, http.StatusOK, map[string]string{"auth_url": authURL})
@@ -76,16 +63,12 @@ func (s *Server) handleGmailCallback(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	value, token := s.session(r)
-	expected := value.OAuthState
+	// state одноразовый: TakeOAuthState забирает его и сразу удаляет, поэтому
+	// повторно тот же ответ Google не пройдёт.
+	expected := s.cache.TakeOAuthState(r.Context(), user.ID)
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
-	// state одноразовый: после проверки его в сессии больше нет.
-	if err := s.saveSession(r, token, redis.Session{UserID: user.ID}); err != nil {
-		fail(w, http.StatusServiceUnavailable, "Хранилище сессий недоступно")
-		return
-	}
-	if code == "" || state == "" || state != expected {
+	if code == "" || state == "" || expected == "" || state != expected {
 		fail(w, http.StatusBadRequest, "Авторизация Google не подтверждена")
 		return
 	}
@@ -116,27 +99,83 @@ func (s *Server) handleGmailCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, s.cfg.FrontendOrigin+"/connections?connected=gmail", http.StatusFound)
 }
 
-// handleConnectTelegram: токен проверяется через getMe — пользователю
-// показываем имя бота.
-func (s *Server) handleConnectTelegram(w http.ResponseWriter, r *http.Request) {
+// Подключение Telegram идёт в два шага: номер телефона → код из Telegram
+// (и пароль, если включена двухфакторная защита). Между шагами состояние
+// лежит в Redis: в нём уже есть ключ шифрования сессии, поэтому живёт оно
+// десять минут и забирается ровно один раз (решение №52).
+
+// handleTelegramStart просит Telegram прислать код на номер.
+func (s *Server) handleTelegramStart(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.currentUser(w, r)
+	if !ok {
+		return
+	}
+	if !s.telegram.Configured() {
+		fail(w, http.StatusServiceUnavailable,
+			"Не заданы TELEGRAM_API_ID и TELEGRAM_API_HASH")
+		return
+	}
+	var payload struct {
+		Phone string `json:"phone"`
+	}
+	if !readJSON(w, r, &payload) {
+		return
+	}
+	phone := strings.TrimSpace(payload.Phone)
+	if len(phone) < 5 {
+		fail(w, http.StatusUnprocessableEntity, "Введите номер телефона")
+		return
+	}
+
+	pending, err := s.telegram.SendCode(r.Context(), phone)
+	if err != nil {
+		fail(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	if err := s.cache.SavePending(r.Context(), user.ID, pending); err != nil {
+		fail(w, http.StatusServiceUnavailable, "Хранилище недоступно")
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"phone": phone})
+}
+
+// handleTelegramConfirm завершает вход и сохраняет сессию.
+func (s *Server) handleTelegramConfirm(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.currentUser(w, r)
 	if !ok {
 		return
 	}
 	var payload struct {
-		BotToken string `json:"bot_token"`
+		Code     string `json:"code"`
+		Password string `json:"password"`
 	}
 	if !readJSON(w, r, &payload) {
 		return
 	}
-	token := strings.TrimSpace(payload.BotToken)
-	if len(token) < 10 {
-		fail(w, http.StatusUnprocessableEntity, "Токен бота слишком короткий")
+	if strings.TrimSpace(payload.Code) == "" {
+		fail(w, http.StatusUnprocessableEntity, "Введите код из Telegram")
 		return
 	}
 
-	botName, err := s.telegram.VerifyToken(token)
+	var pending telegram.Pending
+	if !s.cache.TakePending(r.Context(), user.ID, &pending) {
+		fail(w, http.StatusBadRequest, "Время ожидания кода истекло — начните заново")
+		return
+	}
+
+	sessionData, account, err := s.telegram.SignIn(r.Context(), pending, payload.Code, payload.Password)
 	if err != nil {
+		// Нужен пароль — состояние возвращаем: пользователь введёт его
+		// на том же шаге, повторно код запрашивать незачем.
+		if errors.Is(err, telegram.ErrPasswordNeeded) {
+			if err := s.cache.SavePending(r.Context(), user.ID, pending); err != nil {
+				fail(w, http.StatusServiceUnavailable, "Хранилище недоступно")
+				return
+			}
+			// Не ошибка, а второй шаг того же входа: фронт покажет поле пароля.
+			respond(w, http.StatusOK, map[string]bool{"password_needed": true})
+			return
+		}
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -146,12 +185,13 @@ func (s *Server) handleConnectTelegram(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "Не удалось сохранить подключение")
 		return
 	}
-	credentials, _ := json.Marshal(map[string]string{"bot_token": token})
-	now := postgres.UTCNow()
-	connection.Account = botName
+	credentials, _ := json.Marshal(telegram.Credentials{Session: sessionData})
+	connection.Account = account
 	connection.Credentials = string(credentials)
 	connection.State = "active"
-	connection.LastSyncAt = &now
+	// Метка синхронизации ставится первым проходом планировщика: до него
+	// сообщений ещё нет, и «синхронизировано только что» было бы неправдой.
+	connection.LastSyncAt = nil
 	if err := s.db.SaveConnection(connection); err != nil {
 		fail(w, http.StatusInternalServerError, "Не удалось сохранить подключение")
 		return

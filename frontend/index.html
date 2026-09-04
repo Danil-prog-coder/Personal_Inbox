@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Personal Inbox</title>
     <!-- Иконка вкладки: тот же знак-конверт, что и логотип в интерфейсе.
-         Без неё браузер сам просит /favicon.ico и получает 404. -->
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+         Вшита прямо в разметку, а не отдельным файлом: файл рядом с index.html
+         лежит только после сборки, и при открытии исходника браузер получал
+         на него 404. Data-URI не запрашивается по сети и не падает никогда. -->
+    <link
+      rel="icon"
+      href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="%230a84ff"/><path d="M5 9.2 12 13.5l7-4.3" stroke="%23fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/><rect x="5" y="7.2" width="14" height="10.6" rx="2.8" stroke="%23fff" stroke-width="1.7"/></svg>'
+    />
     <script>
       // Тема и плотность применяются до первого рендера, чтобы не было
       // вспышки чужой темы (решение №28).
@@ -21,9 +26,171 @@
         }
       })();
     </script>
+    <style>
+      /* Стили заставки живут здесь, а не в app.css: она показывается ровно
+         тогда, когда код приложения (а с ним и все стили) не загрузился.
+         Цвета продублированы из design-tokens.css — переменных в этот момент
+         ещё нет. Единственное место в проекте, где цвет задан значением;
+         значения совпадают с --page, --ink, --ink2 (решение №49). */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, 'SF Pro Text', 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        background: #08080a;
+      }
+
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        color: #f2f4f7;
+        background:
+          radial-gradient(52% 40% at 78% 6%, rgba(24, 92, 150, 0.5), transparent 66%),
+          radial-gradient(46% 38% at 12% 92%, rgba(120, 20, 86, 0.42), transparent 68%),
+          radial-gradient(120% 100% at 30% 20%, #0b0b0d 0%, #040405 55%, #000 100%);
+      }
+
+      [data-theme='light'] #boot {
+        color: #0d1526;
+        background:
+          radial-gradient(58% 46% at 82% 8%, rgba(255, 186, 224, 0.9), transparent 62%),
+          radial-gradient(66% 58% at 8% 88%, rgba(126, 226, 255, 0.85), transparent 66%),
+          linear-gradient(158deg, #9dbcff 0%, #5a7fe0 48%, #31409c 100%);
+      }
+
+      #boot[data-visible='yes'] {
+        display: flex;
+      }
+
+      .boot__card {
+        max-width: 420px;
+        padding: 28px;
+        border-radius: 26px;
+        background: linear-gradient(155deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012));
+        backdrop-filter: blur(34px) saturate(200%);
+        -webkit-backdrop-filter: blur(34px) saturate(200%);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.98), 0 12px 30px rgba(0, 0, 0, 0.4);
+      }
+
+      [data-theme='light'] .boot__card {
+        background: linear-gradient(155deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.09));
+        border-color: rgba(255, 255, 255, 0.62);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.98), 0 12px 30px rgba(16, 32, 86, 0.18);
+      }
+
+      .boot__title {
+        margin: 0 0 10px;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .boot__text {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.6);
+      }
+
+      [data-theme='light'] .boot__text {
+        color: rgba(11, 18, 34, 0.68);
+      }
+
+      .boot__code {
+        display: block;
+        margin: 12px 0 0;
+        padding: 10px 14px;
+        border-radius: 14px;
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-size: 13px;
+        color: inherit;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      [data-theme='light'] .boot__code {
+        background: rgba(255, 255, 255, 0.2);
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Заставка на случай, когда код приложения не выполнился: пустой белый
+         экран не объясняет ничего, а причина почти всегда одна — index.html
+         открыли мимо Vite, и браузер получил вместо модуля исходный .tsx. -->
+    <div id="boot">
+      <div class="boot__card">
+        <h1 class="boot__title">Интерфейс не загрузился</h1>
+        <p class="boot__text" data-when="source" hidden>
+          Этот файл — исходник, браузер не умеет выполнять его сам: код собирает Vite.
+          Запустите dev-сервер и откройте адрес, который он напечатает.
+          <code class="boot__code">cd frontend &amp;&amp; npm install &amp;&amp; npm run dev</code>
+        </p>
+        <p class="boot__text" data-when="built" hidden>
+          Код приложения не выполнился. Обновите страницу — если не помогло, соберите
+          статику заново.
+          <code class="boot__code">cd frontend &amp;&amp; npm run build</code>
+        </p>
+      </div>
+    </div>
+
+    <script>
+      // Заставка показывается, только если приложение действительно не встало:
+      // при нормальной загрузке React монтируется в #root и она не мелькает.
+      (function () {
+        var boot = document.getElementById('boot');
+        var root = document.getElementById('root');
+
+        function show() {
+          if (root.childElementCount > 0) return;
+          // В сборке код вшит в страницу, тега с .tsx в ней нет — значит
+          // причина другая, и совет про dev-сервер был бы неверным.
+          var kind = document.querySelector('script[src$=".tsx"]') ? 'source' : 'built';
+          var text = boot.querySelector('[data-when="' + kind + '"]');
+          if (text) text.hidden = false;
+          boot.dataset.visible = 'yes';
+        }
+
+        // Приложение всё-таки встало — заставке здесь больше нечего делать.
+        // Наблюдатель, а не разовая проверка: старт бывает медленным, а ещё
+        // ErrorBoundary рисует свой экран уже после того, как ошибка вылетела
+        // наружу и заставка успела показаться.
+        if (window.MutationObserver) {
+          var watcher = new MutationObserver(function () {
+            if (root.childElementCount === 0) return;
+            boot.dataset.visible = 'no';
+            watcher.disconnect();
+          });
+          watcher.observe(root, { childList: true });
+        }
+
+        // Модуль не загрузился или упал на первой же строке. Проверяем не в
+        // самом обработчике, а следующим тиком: React перехватывает ошибку
+        // рендера и рисует свой экран, и это не случай для заставки.
+        window.addEventListener(
+          'error',
+          function () {
+            setTimeout(show, 150);
+          },
+          true,
+        );
+        // Страховка на всё остальное: сеть отдала пустой ответ, скрипт молча
+        // не выполнился, разбор сорвался. Полсекунды хватает и на медленный старт.
+        window.addEventListener('load', function () {
+          setTimeout(show, 500);
+        });
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

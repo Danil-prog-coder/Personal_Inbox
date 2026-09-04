@@ -24,7 +24,7 @@ func (e *env) list(query string) schemas.MessageList {
 
 func TestListReturnsNewestFirst(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	older := e.message(connection, func(m *messageModel) {
 		m.Subject = "Старое"
@@ -46,7 +46,7 @@ func TestListReturnsNewestFirst(t *testing.T) {
 
 func TestListCountsUnread(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) { m.IsRead = true })
 	e.message(connection, func(m *messageModel) { m.IsRead = false })
@@ -59,7 +59,7 @@ func TestListCountsUnread(t *testing.T) {
 
 func TestFilterBySource(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	gmailConnection := e.connection(user, "gmail", "active")
 	telegramConnection := e.connection(user, "telegram", "active")
 	e.message(gmailConnection, nil)
@@ -72,7 +72,7 @@ func TestFilterBySource(t *testing.T) {
 
 func TestFilterByLevelUsesOverride(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) {
 		m.Level = "LOW"
@@ -90,7 +90,7 @@ func TestFilterByLevelUsesOverride(t *testing.T) {
 
 func TestFilterByStatus(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) { m.IsRead = true })
 	e.message(connection, func(m *messageModel) { m.Status = "PROCESSING" })
@@ -108,7 +108,7 @@ func TestFilterByStatus(t *testing.T) {
 
 func TestFilterByReplyAndAction(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) {
 		m.NeedsReply = true
@@ -132,7 +132,7 @@ func TestFilterByReplyAndAction(t *testing.T) {
 
 func TestFilterByPeriod(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) { m.ReceivedAt = postgres.UTCNow().Add(-time.Hour) })
 	e.message(connection, func(m *messageModel) {
@@ -149,7 +149,7 @@ func TestFilterByPeriod(t *testing.T) {
 
 func TestSearchCoversSenderSubjectAndBody(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) { m.SenderName = "Кирилл Ушаков" })
 	e.message(connection, func(m *messageModel) { m.Subject = "Выписка по счёту" })
@@ -164,7 +164,7 @@ func TestSearchCoversSenderSubjectAndBody(t *testing.T) {
 
 func TestBlankSearchIsIgnored(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, nil)
 
@@ -175,7 +175,7 @@ func TestBlankSearchIsIgnored(t *testing.T) {
 
 func TestFiltersCombine(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) {
 		m.Level = "CRITICAL"
@@ -195,7 +195,7 @@ func TestFiltersCombine(t *testing.T) {
 
 func TestUnknownFilterValueIsRejected(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	for _, query := range []string{"?level=СРОЧНО", "?status=любой", "?reply=может",
 		"?period=квартал", "?source=slack", "?tz_offset=много"} {
 		if status, _ := e.do(http.MethodGet, "/api/messages"+query, nil); status != http.StatusUnprocessableEntity {
@@ -206,7 +206,7 @@ func TestUnknownFilterValueIsRejected(t *testing.T) {
 
 func TestGetMessageDetails(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	message := e.message(connection, nil)
 
@@ -223,10 +223,10 @@ func TestGetMessageDetails(t *testing.T) {
 
 func TestGetMessageOfAnotherUserIs404(t *testing.T) {
 	e := newEnv(t)
-	stranger := e.user("other@northline.io")
+	e.user()
+	stranger := e.otherUser()
 	foreign := e.connection(stranger, "gmail", "active")
 	message := e.message(foreign, nil)
-	e.authorized()
 
 	status, _ := e.do(http.MethodGet, fmt.Sprintf("/api/messages/%d", message.ID), nil)
 	if status != http.StatusNotFound {
@@ -236,7 +236,7 @@ func TestGetMessageOfAnotherUserIs404(t *testing.T) {
 
 func TestMarkReadIsIdempotent(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	message := e.message(connection, nil)
 
@@ -255,7 +255,7 @@ func TestMarkReadIsIdempotent(t *testing.T) {
 
 func TestSetLevelWritesOverrideLog(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	message := e.message(connection, func(m *messageModel) { m.Level = "NORMAL" })
 
@@ -286,7 +286,7 @@ func TestSetLevelWritesOverrideLog(t *testing.T) {
 
 func TestSetSameLevelDoesNotDuplicateLog(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	message := e.message(connection, func(m *messageModel) { m.Level = "HIGH" })
 
@@ -305,7 +305,7 @@ func TestSetSameLevelDoesNotDuplicateLog(t *testing.T) {
 
 func TestSetLevelRejectsUnknownValue(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	message := e.message(connection, nil)
 
@@ -316,17 +316,23 @@ func TestSetLevelRejectsUnknownValue(t *testing.T) {
 	}
 }
 
-func TestMessagesRequireAuth(t *testing.T) {
+// Входа нет: лента открывается сразу, на чистой базе — пустая (решение №50).
+func TestMessagesOpenWithoutLogin(t *testing.T) {
 	e := newEnv(t)
-	status, _ := e.do(http.MethodGet, "/api/messages", nil)
-	if status != http.StatusUnauthorized {
-		t.Fatalf("лента без входа вернула %d", status)
+	status, raw := e.do(http.MethodGet, "/api/messages", nil)
+	if status != http.StatusOK {
+		t.Fatalf("лента вернула %d", status)
+	}
+	var list schemas.MessageList
+	e.decode(raw, &list)
+	if list.Total != 0 || len(list.Items) != 0 {
+		t.Fatalf("на чистой базе лента не пуста: %+v", list)
 	}
 }
 
 func TestMessageTimeFormatMatchesFrontend(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) {
 		m.ReceivedAt = time.Date(2026, 9, 2, 9, 41, 0, 0, time.UTC)

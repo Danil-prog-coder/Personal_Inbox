@@ -20,7 +20,7 @@ func (e *env) cards() []schemas.SourceCard {
 
 func TestDisconnectedSourceIsHidden(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	e.connection(user, "gmail", "off")
 
 	if cards := e.cards(); len(cards) != 0 {
@@ -30,7 +30,7 @@ func TestDisconnectedSourceIsHidden(t *testing.T) {
 
 func TestReauthSourceIsShown(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	e.connection(user, "telegram", "reauth")
 
 	cards := e.cards()
@@ -41,7 +41,7 @@ func TestReauthSourceIsShown(t *testing.T) {
 
 func TestCardCountsAndDistribution(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) {
 		m.Level = "CRITICAL"
@@ -68,7 +68,7 @@ func TestCardCountsAndDistribution(t *testing.T) {
 
 func TestUrgentPrefersCriticalThenHigh(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) {
 		m.Level = "HIGH"
@@ -87,7 +87,7 @@ func TestUrgentPrefersCriticalThenHigh(t *testing.T) {
 
 func TestUrgentFallsBackToHigh(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) { m.Level = "NORMAL" })
 	e.message(connection, func(m *messageModel) {
@@ -103,7 +103,7 @@ func TestUrgentFallsBackToHigh(t *testing.T) {
 
 func TestUrgentIsNullWhenNothingUrgent(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) { m.Level = "NORMAL" })
 
@@ -114,7 +114,7 @@ func TestUrgentIsNullWhenNothingUrgent(t *testing.T) {
 
 func TestUrgentRespectsManualOverride(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, func(m *messageModel) {
 		m.Level = "LOW"
@@ -133,7 +133,7 @@ func TestUrgentRespectsManualOverride(t *testing.T) {
 
 func TestEmptySourceCard(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	e.connection(user, "gmail", "active")
 
 	card := e.cards()[0]
@@ -145,9 +145,10 @@ func TestEmptySourceCard(t *testing.T) {
 	}
 }
 
-func TestSourcesRequireAuth(t *testing.T) {
+// Входа нет: карточки источников открываются сразу (решение №50).
+func TestSourcesOpenWithoutLogin(t *testing.T) {
 	e := newEnv(t)
-	if status, _ := e.do(http.MethodGet, "/api/sources", nil); status != http.StatusUnauthorized {
-		t.Fatalf("без входа ожидался 401, получен %d", status)
+	if status, _ := e.do(http.MethodGet, "/api/sources", nil); status != http.StatusOK {
+		t.Fatalf("карточки источников вернули %d", status)
 	}
 }

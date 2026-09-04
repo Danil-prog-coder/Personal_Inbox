@@ -19,7 +19,6 @@ import (
 	"personalinbox/internal/services/ingest"
 	"personalinbox/internal/telegram"
 	"personalinbox/internal/testenv"
-	"personalinbox/internal/utils/security"
 )
 
 // messageModel — короткое имя для правок сообщения в тестах.
@@ -44,8 +43,6 @@ type env struct {
 	counter  int
 }
 
-const testPassword = "qwerty12345"
-
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	db := testenv.DB(t)
@@ -58,7 +55,7 @@ func newEnv(t *testing.T) *env {
 	queue := &fakeQueue{}
 	ingestor := ingest.New(db, bus, queue)
 	gmailClient := &gmail.Client{}
-	telegramClient := telegram.NewClient()
+	telegramClient := telegram.NewClient(0, "")
 
 	server := httptest.NewServer(
 		New(cfg, db, cache, bus, ingestor, queue, gmailClient, telegramClient).Handler())
@@ -127,35 +124,41 @@ func (e *env) detail(raw []byte) string {
 	return payload.Detail
 }
 
-// user создаёт пользователя прямо в базе, минуя регистрацию.
-func (e *env) user(email string) *postgres.User {
+// user — единственный пользователь установки: тот же, от чьего имени сервер
+// отвечает на любой запрос. Входа нет, поэтому и подготовки никакой.
+func (e *env) user() *postgres.User {
 	e.t.Helper()
-	hash, err := security.HashPassword(testPassword)
+	user, err := e.db.LocalUser()
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	user, err := e.db.CreateUser(email, hash, "Важны договоры и сроки.")
-	if err != nil {
-		e.t.Fatal(err)
+	if user.Criteria == "" {
+		user.Criteria = "Важны договоры и сроки."
+		if err := e.db.SaveUser(user); err != nil {
+			e.t.Fatal(err)
+		}
 	}
 	return user
 }
 
-// login выполняет вход: cookie сохраняется в jar клиента.
-func (e *env) login(email string) {
+// otherUser — вторая строка в users, к которой сервер никогда не обращается.
+// Пользователь в приложении один, но фильтр по user_id в запросах остался,
+// и именно его эти данные и проверяют. Заводить строго после user():
+// LocalUser берёт самую раннюю запись.
+// telegramKeys выдаёт клиенту заведомо неверные, но заполненные ключи:
+// так проверка «ключи не заданы» пропускает запрос дальше.
+func (e *env) telegramKeys() {
 	e.t.Helper()
-	status, raw := e.do(http.MethodPost, "/api/auth/login",
-		map[string]string{"email": email, "password": testPassword})
-	if status != http.StatusOK {
-		e.t.Fatalf("вход не удался: %d %s", status, raw)
-	}
+	e.telegram.APIID = 1
+	e.telegram.APIHash = "тест"
 }
 
-// authorized создаёт пользователя и сразу входит под ним.
-func (e *env) authorized() *postgres.User {
+func (e *env) otherUser() *postgres.User {
 	e.t.Helper()
-	user := e.user("max@northline.io")
-	e.login(user.Email)
+	user, err := e.db.CreateUser("")
+	if err != nil {
+		e.t.Fatal(err)
+	}
 	return user
 }
 

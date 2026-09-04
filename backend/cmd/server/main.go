@@ -23,7 +23,6 @@ import (
 	"personalinbox/internal/services/scheduler"
 	"personalinbox/internal/services/seed"
 	"personalinbox/internal/telegram"
-	"personalinbox/internal/utils/security"
 )
 
 func main() {
@@ -49,7 +48,7 @@ func main() {
 	worker := analysis.NewWorker(db, bus, openai.NewOpenAI(cfg))
 	ingestor := ingest.New(db, bus, worker)
 	gmailClient := gmail.NewClient(cfg)
-	telegramClient := telegram.NewClient()
+	telegramClient := telegram.NewClient(cfg.TelegramAPIID, cfg.TelegramAPIHash)
 
 	var sync *scheduler.Scheduler
 	if cfg.EnableScheduler {
@@ -60,14 +59,7 @@ func main() {
 	if cfg.DemoLive {
 		// Доигрывает три «новых» сообщения из референса: на них видно
 		// появление карточек в реальном времени через SSE.
-		go func() {
-			hash, err := security.HashPassword(seed.DemoPassword)
-			if err != nil {
-				log.Printf("демо-очередь: %v", err)
-				return
-			}
-			seed.PlayLiveQueue(db, bus, hash, 6*time.Second, 16*time.Second, 2600*time.Millisecond)
-		}()
+		go seed.PlayLiveQueue(db, bus, 6*time.Second, 16*time.Second, 2600*time.Millisecond)
 	}
 
 	server := &http.Server{

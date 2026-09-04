@@ -56,17 +56,14 @@ func New(
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /api/auth/register", s.handleRegister)
-	mux.HandleFunc("POST /api/auth/login", s.handleLogin)
-	mux.HandleFunc("POST /api/auth/logout", s.handleLogout)
-
 	mux.HandleFunc("GET /api/me", s.handleGetMe)
 	mux.HandleFunc("PATCH /api/me", s.handleUpdateMe)
 
 	mux.HandleFunc("GET /api/connections", s.handleListConnections)
 	mux.HandleFunc("POST /api/connections/gmail/start", s.handleGmailStart)
 	mux.HandleFunc("GET /api/connections/gmail/callback", s.handleGmailCallback)
-	mux.HandleFunc("POST /api/connections/telegram", s.handleConnectTelegram)
+	mux.HandleFunc("POST /api/connections/telegram/start", s.handleTelegramStart)
+	mux.HandleFunc("POST /api/connections/telegram/confirm", s.handleTelegramConfirm)
 	mux.HandleFunc("DELETE /api/connections/{kind}", s.handleDisconnect)
 
 	mux.HandleFunc("GET /api/sources", s.handleListSources)

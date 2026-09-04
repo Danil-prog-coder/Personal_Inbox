@@ -43,7 +43,6 @@ func TimePtr(value *time.Time) *Time {
 // User — профиль: критерии, тема, плотность.
 type User struct {
 	ID        int64  `json:"id"`
-	Email     string `json:"email"`
 	Criteria  string `json:"criteria"`
 	Theme     string `json:"theme"`
 	Density   string `json:"density"`
@@ -132,7 +131,6 @@ type MeUpdateResult struct {
 func UserOut(user *postgres.User) User {
 	return User{
 		ID:        user.ID,
-		Email:     user.Email,
 		Criteria:  user.Criteria,
 		Theme:     user.Theme,
 		Density:   user.Density,

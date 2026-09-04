@@ -1,6 +1,7 @@
 # Бэкенд: сборка статического бинарника и запуск на голом alpine.
-# Драйвер SQLite чистый на Go, поэтому CGO не нужен.
-FROM golang:1.24-alpine AS build
+# Драйверы Postgres и Redis на чистом Go, поэтому CGO не нужен.
+# Go 1.25: этого требует gotd/td, клиент MTProto (решение №52).
+FROM golang:1.25-alpine AS build
 WORKDIR /src
 
 COPY go.mod go.sum ./

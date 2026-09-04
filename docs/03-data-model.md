@@ -30,14 +30,15 @@ MsgStatuses = "PROCESSING" | "DONE"                      // статус оце�
 | Поле | Тип | Заметки |
 | --- | --- | --- |
 | `id` | bigserial PK | |
-| `email` | str unique | |
-| `password_hash` | str | bcrypt |
 | `criteria` | text | критерии важности, может быть пустой строкой |
 | `theme` | str | `dark` \| `light`, по умолчанию `dark` |
 | `density` | str | `spacious` \| `compact`, по умолчанию `spacious` |
 | `created_at` | datetime | |
 
-Пользователь один на инсталляцию, но таблица всё равно нужна — на ней висит auth.
+Пользователь один на инсталляцию, входа нет (решение №50). Таблица всё равно
+нужна: на строке висят настройки, а на её `id` — подключения и сообщения.
+Строка заводится сама при первом обращении, `email` и `password_hash` убраны
+миграцией `0002_drop_credentials.sql`.
 
 ### `connection`
 | Поле | Тип | Заметки |
@@ -47,9 +48,9 @@ MsgStatuses = "PROCESSING" | "DONE"                      // статус оце�
 | `kind` | `SourceKind` | |
 | `state` | `ConnState` | |
 | `account` | str | `me@northline.io` / `@maxorlov` — то, что показано в UI |
-| `credentials` | text | JSON: refresh_token для Gmail, bot_token для Telegram |
+| `credentials` | text | JSON: `refresh_token` для Gmail, `session` для Telegram |
 | `last_sync_at` | datetime nullable | |
-| `sync_cursor` | str nullable | Gmail `historyId` / Telegram `update_id` |
+| `sync_cursor` | str nullable | Gmail `historyId`; Telegram обходится `last_sync_at` |
 
 Одна строка на (пользователь, сервис). Отключение источника ставит `state = off`
 и **обнуляет `credentials`**, но **не удаляет сообщения** — они остаются в ленте.
@@ -59,7 +60,7 @@ MsgStatuses = "PROCESSING" | "DONE"                      // статус оце�
 | --- | --- | --- |
 | `id` | int PK | |
 | `connection_id` | FK | |
-| `external_id` | str | id письма в Gmail / `chat_id:message_id` в Telegram |
+| `external_id` | str | id письма в Gmail / `<пир>:<id сообщения>` в Telegram |
 | `sender_name` | str | «Анна Ковалёва» |
 | `sender_addr` | str | `a.kovaleva@northline.io` / `@dmitry_pm` / `групповой чат, 9 участников` |
 | `subject` | str | тема письма; для Telegram — первая строка сообщения |
@@ -151,16 +152,16 @@ MsgStatuses = "PROCESSING" | "DONE"                      // статус оце�
 
 ## 6. HTTP API
 
-Сессии лежат в Redis по ключу `session:<токен>` со сроком жизни 30 дней;
-в cookie уходит только непрозрачный случайный токен. Выход удаляет ключ —
-украденная cookie после выхода бесполезна.
+Сессий в Redis нет: входа в приложение не существует. Остался одноразовый
+`oauth:<user_id>` на 10 минут — state подтверждения Google, читается один раз
+и сразу удаляется.
 
 Кэш — ключи `cache:<user_id>:<имя>` со сроком 45 секунд: `sources` и
 `summary:<период>`. Сбрасывается на любой записи, которая меняет ленту.
 
-Все ответы — JSON. Аутентификация — сессионная cookie (`httpOnly`, `SameSite=Lax`),
-содержимое подписано HMAC-SHA256 на `SESSION_SECRET`. JWT не заводим:
-одностраничное приложение и один бэкенд, куки проще и безопаснее.
+Все ответы — JSON. Аутентификации нет: сервер сам берёт единственного
+пользователя установки (решение №50). Приложение слушает локально и не
+предназначено для выставления наружу.
 
 Ошибка возвращается как `{"detail": "текст по-русски"}` — этот формат читает
 `frontend/src/lib/api.ts`. Даты в ответах — ISO без зоны и без суффикса
@@ -168,15 +169,13 @@ MsgStatuses = "PROCESSING" | "DONE"                      // статус оце�
 
 | Метод | Путь | Назначение |
 | --- | --- | --- |
-| `POST` | `/api/auth/register` | `{email, password}` |
-| `POST` | `/api/auth/login` | `{email, password}` |
-| `POST` | `/api/auth/logout` | |
-| `GET` | `/api/me` | профиль, критерии, тема, плотность |
-| `PATCH` | `/api/me` | смена темы, плотности, критериев, пароля |
+| `GET` | `/api/me` | профиль: критерии, тема, плотность |
+| `PATCH` | `/api/me` | смена темы, плотности, критериев |
 | `GET` | `/api/connections` | список с состояниями и `last_sync_at` |
 | `POST` | `/api/connections/gmail/start` | вернуть URL авторизации Google |
 | `GET` | `/api/connections/gmail/callback` | приём кода OAuth |
-| `POST` | `/api/connections/telegram` | `{bot_token}`, проверка через `getMe` |
+| `POST` | `/api/connections/telegram/start` | `{phone}`, Telegram шлёт код |
+| `POST` | `/api/connections/telegram/confirm` | `{code, password}`; `{password_needed: true}`, если включена двухфакторная |
 | `DELETE` | `/api/connections/{kind}` | отключить |
 | `GET` | `/api/sources` | карточки уровня 1: счётчики, распределение, самое срочное |
 | `GET` | `/api/messages` | `?source=&level=&status=&reply=&action=&period=&q=&tz_offset=` |

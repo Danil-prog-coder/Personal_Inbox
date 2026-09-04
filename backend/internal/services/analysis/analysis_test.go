@@ -53,7 +53,7 @@ func newWorker(t *testing.T, analyzer openai.Analyzer) (*Worker, *postgres.DB, *
 
 func newMessage(t *testing.T, db *postgres.DB, criteria string, apply func(*postgres.Message)) (*postgres.Message, *postgres.User) {
 	t.Helper()
-	user, err := db.CreateUser("max@northline.io", "хеш", criteria)
+	user, err := db.CreateUser(criteria)
 	if err != nil {
 		t.Fatal(err)
 	}

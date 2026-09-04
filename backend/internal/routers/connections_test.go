@@ -1,33 +1,16 @@
 package routers
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"personalinbox/internal/schemas"
-	"personalinbox/internal/telegram"
 )
-
-// telegramStub подменяет Bot API: подключение проверяется вызовом getMe.
-func (e *env) telegramStub(ok bool) {
-	e.t.Helper()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if !ok {
-			w.Write([]byte(`{"ok": false, "description": "Unauthorized: неверный токен"}`))
-			return
-		}
-		w.Write([]byte(`{"ok": true, "result": {"username": "maxorlov_bot"}}`))
-	}))
-	e.t.Cleanup(server.Close)
-	*e.telegram = telegram.Client{BaseURL: server.URL, HTTP: server.Client()}
-}
 
 func TestListShowsBothSourcesEvenWithoutConnections(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, raw := e.do(http.MethodGet, "/api/connections", nil)
 	if status != http.StatusOK {
 		t.Fatalf("список источников вернул %d", status)
@@ -46,7 +29,7 @@ func TestListShowsBothSourcesEvenWithoutConnections(t *testing.T) {
 
 func TestListShowsStateAndAccount(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	e.connection(user, "gmail", "active")
 
 	_, raw := e.do(http.MethodGet, "/api/connections", nil)
@@ -65,70 +48,69 @@ func TestListShowsStateAndAccount(t *testing.T) {
 	}
 }
 
-func TestConnectTelegramVerifiesToken(t *testing.T) {
+// Вход в Telegram идёт через настоящий MTProto: код приходит на телефон,
+// подменить это в тесте нечем. Проверяем всё, что до сети (решение №52).
+
+func TestTelegramStartNeedsAPIKeys(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
-	e.telegramStub(true)
+	e.user()
 
-	status, raw := e.do(http.MethodPost, "/api/connections/telegram",
-		map[string]string{"bot_token": "123456:секретный-токен"})
-	if status != http.StatusOK {
-		t.Fatalf("подключение вернуло %d: %s", status, raw)
+	status, raw := e.do(http.MethodPost, "/api/connections/telegram/start",
+		map[string]string{"phone": "+79990000000"})
+	if status != http.StatusServiceUnavailable {
+		t.Fatalf("без ключей API ожидался 503, получен %d", status)
 	}
-	var connection schemas.Connection
-	e.decode(raw, &connection)
-	if connection.Account != "@maxorlov_bot" || connection.State != "active" {
-		t.Fatalf("подключение собрано неверно: %+v", connection)
-	}
-
-	stored, err := e.db.Connection(user.ID, "telegram")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var credentials map[string]string
-	if err := json.Unmarshal([]byte(stored.Credentials), &credentials); err != nil {
-		t.Fatal(err)
-	}
-	if credentials["bot_token"] != "123456:секретный-токен" {
-		t.Fatalf("токен сохранён неверно: %v", credentials)
+	if !strings.Contains(e.detail(raw), "TELEGRAM_API_ID") {
+		t.Fatalf("ошибка должна называть недостающие ключи: %q", e.detail(raw))
 	}
 }
 
-func TestConnectTelegramWithBadToken(t *testing.T) {
+func TestTelegramStartRejectsShortPhone(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
-	e.telegramStub(false)
+	e.user()
+	e.telegramKeys()
 
-	status, raw := e.do(http.MethodPost, "/api/connections/telegram",
-		map[string]string{"bot_token": "123456:плохой-токен"})
-	if status != http.StatusBadRequest {
-		t.Fatalf("неверный токен вернул %d", status)
-	}
-	if !strings.Contains(e.detail(raw), "Unauthorized") {
-		t.Fatalf("ошибка Telegram должна доходить до пользователя: %q", e.detail(raw))
-	}
-}
-
-func TestConnectTelegramRejectsShortToken(t *testing.T) {
-	e := newEnv(t)
-	e.authorized()
-	status, _ := e.do(http.MethodPost, "/api/connections/telegram",
-		map[string]string{"bot_token": "123"})
+	status, _ := e.do(http.MethodPost, "/api/connections/telegram/start",
+		map[string]string{"phone": "+7"})
 	if status != http.StatusUnprocessableEntity {
-		t.Fatalf("слишком короткий токен вернул %d", status)
+		t.Fatalf("короткий номер вернул %d", status)
 	}
 }
 
-func TestReconnectUpdatesExistingRow(t *testing.T) {
+func TestTelegramConfirmNeedsCode(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
-	e.connection(user, "telegram", "reauth")
-	e.telegramStub(true)
+	e.user()
 
-	if status, _ := e.do(http.MethodPost, "/api/connections/telegram",
-		map[string]string{"bot_token": "123456:новый-токен"}); status != http.StatusOK {
-		t.Fatal("переподключение не удалось")
+	status, _ := e.do(http.MethodPost, "/api/connections/telegram/confirm",
+		map[string]string{"code": "   "})
+	if status != http.StatusUnprocessableEntity {
+		t.Fatalf("пустой код вернул %d", status)
 	}
+}
+
+func TestTelegramConfirmWithoutStart(t *testing.T) {
+	e := newEnv(t)
+	e.user()
+
+	status, raw := e.do(http.MethodPost, "/api/connections/telegram/confirm",
+		map[string]string{"code": "12345"})
+	if status != http.StatusBadRequest {
+		t.Fatalf("подтверждение без запроса кода вернуло %d", status)
+	}
+	if !strings.Contains(e.detail(raw), "истекло") {
+		t.Fatalf("текст ошибки: %q", e.detail(raw))
+	}
+}
+
+func TestReconnectKeepsSingleRow(t *testing.T) {
+	e := newEnv(t)
+	user := e.user()
+	e.connection(user, "telegram", "reauth")
+
+	// Повторное подключение того же вида не должно заводить вторую строку:
+	// GetOrCreateConnection возвращает существующую.
+	e.connection(user, "telegram", "active")
+
 	connections, err := e.db.ConnectionsOf(user.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -143,7 +125,7 @@ func TestReconnectUpdatesExistingRow(t *testing.T) {
 
 func TestDisconnectClearsCredentialsButKeepsMessages(t *testing.T) {
 	e := newEnv(t)
-	user := e.authorized()
+	user := e.user()
 	connection := e.connection(user, "gmail", "active")
 	e.message(connection, nil)
 
@@ -168,7 +150,7 @@ func TestDisconnectClearsCredentialsButKeepsMessages(t *testing.T) {
 
 func TestDisconnectUnknownSource(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, _ := e.do(http.MethodDelete, "/api/connections/slack", nil)
 	if status != http.StatusNotFound {
 		t.Fatalf("неизвестный источник вернул %d", status)
@@ -177,7 +159,7 @@ func TestDisconnectUnknownSource(t *testing.T) {
 
 func TestDisconnectMissingConnection(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, _ := e.do(http.MethodDelete, "/api/connections/gmail", nil)
 	if status != http.StatusNotFound {
 		t.Fatalf("неподключённый источник вернул %d", status)
@@ -186,7 +168,7 @@ func TestDisconnectMissingConnection(t *testing.T) {
 
 func TestGmailStartWithoutGoogleCredentials(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, raw := e.do(http.MethodPost, "/api/connections/gmail/start", nil)
 	if status != http.StatusServiceUnavailable {
 		t.Fatalf("без ключей Google ожидался 503, получен %d", status)
@@ -198,7 +180,7 @@ func TestGmailStartWithoutGoogleCredentials(t *testing.T) {
 
 func TestGmailStartReturnsAuthURL(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	e.gmail.ClientID = "id"
 	e.gmail.ClientSecret = "secret"
 	e.gmail.RedirectURI = "http://localhost:8000/api/connections/gmail/callback"
@@ -218,7 +200,7 @@ func TestGmailStartReturnsAuthURL(t *testing.T) {
 
 func TestGmailCallbackRejectsForeignState(t *testing.T) {
 	e := newEnv(t)
-	e.authorized()
+	e.user()
 	status, raw := e.do(http.MethodGet, "/api/connections/gmail/callback?code=код&state=чужое", nil)
 	if status != http.StatusBadRequest {
 		t.Fatalf("чужой state вернул %d", status)
@@ -228,19 +210,18 @@ func TestGmailCallbackRejectsForeignState(t *testing.T) {
 	}
 }
 
-func TestConnectionsRequireAuth(t *testing.T) {
+// Входа нет: список источников отдаётся сразу, на чистой базе тоже
+// (решение №50). Здесь только GET: остальные ручки заводят подключения
+// и проверяются своими тестами.
+func TestConnectionsOpenWithoutLogin(t *testing.T) {
 	e := newEnv(t)
-	for _, request := range []struct {
-		method string
-		path   string
-	}{
-		{http.MethodGet, "/api/connections"},
-		{http.MethodPost, "/api/connections/gmail/start"},
-		{http.MethodDelete, "/api/connections/gmail"},
-	} {
-		status, _ := e.do(request.method, request.path, nil)
-		if status != http.StatusUnauthorized {
-			t.Fatalf("%s %s без входа вернул %d", request.method, request.path, status)
-		}
+	status, raw := e.do(http.MethodGet, "/api/connections", nil)
+	if status != http.StatusOK {
+		t.Fatalf("список источников вернул %d", status)
+	}
+	var connections []schemas.Connection
+	e.decode(raw, &connections)
+	if len(connections) != 2 {
+		t.Fatalf("источников в ответе: %d", len(connections))
 	}
 }
