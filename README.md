@@ -96,10 +96,71 @@ make test-front     # тесты фронтенда
 
 Без `OPENAI_API_KEY` сообщения всё равно попадают в ленту, но получают пометку
 «Оценка недоступна» после трёх попыток вызова модели. Без ключей Google
-подключение Gmail недоступно; Telegram требует api_id и api_hash с my.telegram.org и вход по номеру телефона.
+подключение Gmail недоступно; Telegram требует api_id и api_hash с my.telegram.org
+и вход по номеру телефона. Где всё это взять — раздел
+[«Ключи и доступы»](#ключи-и-доступы).
 
 `DEMO_LIVE=1 make run` доигрывает три «новых» сообщения из референса —
 на них видно появление карточек в реальном времени через SSE.
+
+## Ключи и доступы
+
+Все ключи живут в `.env` (шаблон — `.env.example`), в репозиторий не попадают.
+Без них приложение всё равно поднимается: лента, фильтры и демо-данные работают,
+но сообщения получают пометку «Оценка недоступна», а источники не подключаются.
+
+### Gmail — Google Cloud Console
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → создайте проект.
+2. **APIs & Services → Library** → включите **Gmail API**.
+3. **APIs & Services → OAuth consent screen**: тип `External`, название и почта
+   поддержки — любые. Добавьте scope `https://www.googleapis.com/auth/gmail.readonly`
+   и внесите свой адрес в **Test users**: пока приложение в статусе `Testing`,
+   Google пускает только их.
+4. **Credentials → Create credentials → OAuth client ID**, тип
+   **Web application**.
+5. В **Authorized redirect URIs** впишите адрес возврата — ровно тот, на котором
+   работает бэкенд:
+   - без контейнеров — `http://localhost:8000/api/connections/gmail/callback`
+   - `docker compose` — `http://localhost:8080/api/connections/gmail/callback`
+
+   Адрес собирается как `APP_BASE_URL` + `/api/connections/gmail/callback`
+   и переопределяется переменной `GOOGLE_REDIRECT_URI`. Совпадать он должен
+   символ в символ, иначе Google ответит `redirect_uri_mismatch`. Меняете
+   `WEB_PORT` — поменяйте и здесь, и в `PUBLIC_URL`.
+6. Полученные Client ID и Client secret → `GOOGLE_CLIENT_ID`
+   и `GOOGLE_CLIENT_SECRET`.
+
+Запрашивается единственный доступ — `gmail.readonly`: только чтение писем,
+без отправки, изменения и удаления.
+
+### Telegram — my.telegram.org
+
+1. [my.telegram.org](https://my.telegram.org) → вход по номеру телефона,
+   код приходит в сам Telegram.
+2. **API development tools** → заполните `App title` и `Short name`,
+   остальные поля можно оставить пустыми.
+3. Выданные `api_id` и `api_hash` → `TELEGRAM_API_ID` и `TELEGRAM_API_HASH`.
+4. Дальше подключение идёт в приложении: номер телефона → код из Telegram →
+   если включена двухэтапная проверка, ещё и облачный пароль.
+
+Это ключи клиентского API (MTProto), а не токен бота: лента читает личные
+диалоги вашего аккаунта, боту они не видны. Сессия хранится в базе и даёт
+полный доступ к аккаунту — обращайтесь с ней как с паролем; отключение
+источника её стирает.
+
+### Языковая модель — OpenAI
+
+[platform.openai.com/api-keys](https://platform.openai.com/api-keys) → ключ
+в `OPENAI_API_KEY`. Модель задаётся переменной `OPENAI_MODEL`,
+по умолчанию `gpt-4o-mini`.
+
+### VK и GitHub — в разработке
+
+Оба источника **в процессе разработки**: в окне «Выберите сервис» они видны,
+но неактивны и помечены `Скоро` (VK — `Сообщения сообществ`, GitHub —
+`Issues, PR, упоминания`). Ключей они пока не требуют, переменных в `.env` для
+них нет. В MVP работают только Gmail и Telegram.
 
 ## Граф проекта
 
@@ -168,3 +229,6 @@ docker-compose.yml    весь стек: backend + nginx
 и покрыты тестами: `make test` (`go test`) и `make test-front` (vitest).
 Бэкенд переписан с Python/FastAPI на Go — контракт API при этом не изменился,
 фронтенд не правился (решение №35 в `docs/04-decisions.md`).
+
+Из источников работают Gmail и Telegram. VK и GitHub — в процессе разработки:
+в списке сервисов они есть, но пока неактивны, с пометкой «Скоро».
